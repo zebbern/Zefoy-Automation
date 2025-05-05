@@ -1,7 +1,7 @@
 
 <div align="center">
    <a href="https://github.com/zebbern/Zefoy-Automator-2025">
-      <img src="https://www.edigitalagency.com.au/wp-content/uploads/TikTok-icon-glyph.png" alt="Logo" width="120" height="120">
+      <img src="https://www.edigitalagency.com.au/wp-content/uploads/TikTok-icon-glyph.png" alt="Logo" width="120" height="121">
    </a>
 
 ## Automate Zefoy Interactions With No Effort
