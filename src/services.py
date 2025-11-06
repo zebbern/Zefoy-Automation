@@ -49,14 +49,16 @@ class Service:
 class ServiceManager:
     """Manages Zefoy services and their operations"""
     
-    def __init__(self, driver: WebDriver):
+    def __init__(self, driver: WebDriver, driver_manager=None):
         """
         Initialize the ServiceManager
         
         Args:
             driver: Selenium WebDriver instance
+            driver_manager: DriverManager instance for stealth refresh
         """
         self.driver = driver
+        self.driver_manager = driver_manager
         self.actions = SeleniumActions(driver)
         self.services: Dict[str, Service] = self._initialize_services()
     
@@ -133,21 +135,44 @@ class ServiceManager:
             Selected Service object
             
         Raises:
-            ServiceUnavailableError: If service is not available
+            ServiceUnavailableError: If service selection fails
         """
         service = self.get_service(service_name)
         
+        # BYPASS: Allow service to run regardless of detected status
+        # Original check removed: if service.status != ServiceStatus.WORKING
         if service.status != ServiceStatus.WORKING:
-            raise ServiceUnavailableError(
-                f"Service '{service_name}' is not available (status: {service.status})"
-            )
+            logger.warning(f"Service '{service_name}' appears to be {service.status}, but attempting to use it anyway...")
         
         try:
-            self.actions.click_element(
-                By.XPATH,
-                service.button_xpath,
-                description=f"service button for '{service_name}'"
-            )
+            # Use jQuery trigger click (proven working method from console testing)
+            # Get CSS class from the button XPath
+            css_class_map = {
+                'followers': '.t-followers-button',
+                'hearts': '.t-hearts-button',
+                'comment_hearts': '.t-chearts-button',
+                'views': '.t-views-button',
+                'shares': '.t-shares-button',
+                'favorites': '.t-favorites-button'
+            }
+            
+            css_selector = css_class_map.get(service_name)
+            if css_selector:
+                script = f"""
+                    var result = $('{css_selector}').first().trigger('click');
+                    return result.length > 0;
+                """
+                success = self.driver.execute_script(script)
+                if not success:
+                    raise ServiceUnavailableError(f"Could not click service button via jQuery for '{service_name}'")
+                logger.info(f"Selected service via jQuery: {service_name}")
+            else:
+                # Fallback to old XPath method
+                self.actions.click_element(
+                    By.XPATH,
+                    service.button_xpath,
+                    description=f"service button for '{service_name}'"
+                )
             logger.info(f"Selected service: {service_name}")
             return service
         except Exception as e:
@@ -157,6 +182,7 @@ class ServiceManager:
     def perform_generic_service_action(self, service: Service, video_url: str) -> None:
         """
         Perform a generic service action (for views, likes, shares, etc.)
+        Uses proven JavaScript methods from browser console testing
         
         Args:
             service: Service object
@@ -170,43 +196,165 @@ class ServiceManager:
         # Validate URL
         validate_url(video_url)
         
-        # Define action steps
+        # Define action steps using working JavaScript methods
         steps = [
             {
-                "description": "clear URL input",
-                "xpath": config.XPATH_TEMPLATES["url_input"].format(div_index=service.div_index),
-                "action": "clear"
-            },
-            {
                 "description": "enter video URL",
-                "xpath": config.XPATH_TEMPLATES["url_input"].format(div_index=service.div_index),
-                "action": "input",
-                "text": video_url
+                "action": "input_jquery",
+                "text": video_url,
+                "delay": 0.5
             },
             {
                 "description": "click search button",
-                "xpath": config.XPATH_TEMPLATES["search_button"].format(div_index=service.div_index),
-                "action": "click",
-                "delay": config.SEARCH_DELAY
+                "action": "click_search",
+                "delay": config.SEARCH_DELAY * 2  # Double wait for search results
             },
             {
                 "description": "click send button",
-                "xpath": config.XPATH_TEMPLATES["send_button"].format(div_index=service.div_index),
-                "action": "click"
+                "action": "click_send"
             }
         ]
         
         # Execute steps
         for step in steps:
             try:
-                if step["action"] == "clear":
-                    element = self.actions.find_element(
-                        By.XPATH,
-                        step["xpath"],
-                        description=step["description"]
-                    )
-                    element.clear()
-                    logger.debug(f"Successfully {step['description']}")
+                if step["action"] == "input_jquery":
+                    # Use jQuery to set input value (proven working method)
+                    script = f"""
+                        var input = $('input[placeholder="Enter Video URL"]').filter(':visible').first();
+                        if (input.length === 0) return false;
+                        input.val(arguments[0]);
+                        return true;
+                    """
+                    success = self.driver.execute_script(script, step["text"])
+                    if not success:
+                        raise ServiceActionError(service.name, "input", "URL input field not found")
+                    logger.info(f"Entered text via jQuery: {step['description']}")
+                    
+                elif step["action"] == "click_search":
+                    # Use forced JS click for search button (proven working method)
+                    script = """
+                        const btn = Array.from(document.querySelectorAll('button[type="submit"], button'))
+                            .find(b => /\\bSearch\\b/.test(b.textContent) && (b.offsetParent !== null || b.getBoundingClientRect().width > 0));
+                        if (!btn) return false;
+                        if (btn.disabled) { btn.disabled = false; btn.removeAttribute('disabled'); }
+                        btn.click();
+                        btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                        btn.closest('form')?.requestSubmit?.();
+                        return true;
+                    """
+                    success = self.driver.execute_script(script)
+                    if not success:
+                        raise ServiceActionError(service.name, "search", "Search button not found")
+                    logger.info(f"Clicked via forced JS: {step['description']}")
+                
+                elif step["action"] == "click_send":
+                    # Use forced JS click for send button with retry logic for cooldown timer
+                    # The send button may not appear immediately due to Zefoy's cooldown/spam protection
+                    # When on cooldown, we need to re-search (step 3) and then try send again (step 4)
+                    
+                    search_script = """
+                        const btn = Array.from(document.querySelectorAll('button[type="submit"], button'))
+                            .find(b => /\\bSearch\\b/.test(b.textContent) && (b.offsetParent !== null || b.getBoundingClientRect().width > 0));
+                        if (!btn) return false;
+                        if (btn.disabled) { btn.disabled = false; btn.removeAttribute('disabled'); }
+                        btn.click();
+                        btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                        btn.closest('form')?.requestSubmit?.();
+                        return true;
+                    """
+                    
+                    send_script = """
+                        const btn = Array.from(document.querySelectorAll('button[type="submit"], button.wbutton, button'))
+                            .find(b => (b.classList.contains('wbutton') || /\\bSend\\b/i.test(b.textContent)) && (b.offsetParent !== null || b.getBoundingClientRect().width > 0));
+                        if (!btn) return false;
+                        if (btn.disabled) { btn.disabled = false; btn.removeAttribute('disabled'); }
+                        btn.click();
+                        btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                        btn.closest('form')?.requestSubmit?.();
+                        return true;
+                    """
+                    
+                    # Retry loop with 40-second delays
+                    max_attempts = 999  # Effectively unlimited retries
+                    attempt = 0
+                    success = False
+                    
+                    while not success and attempt < max_attempts:
+                        attempt += 1
+                        logger.info(f"Attempting to click send button (attempt {attempt})...")
+                        
+                        # CRITICAL: Refresh stealth protection before send button click
+                        # This fixes the "Browser not supported" error that appears after clicking
+                        if hasattr(self.driver, 'refresh_stealth_protection'):
+                            self.driver.refresh_stealth_protection()
+                        elif hasattr(self.driver_manager, 'refresh_stealth_protection'):
+                            self.driver_manager.refresh_stealth_protection()
+                        
+                        # Try to click send button
+                        success = self.driver.execute_script(send_script)
+                        
+                        if success:
+                            logger.info(f"✓ Successfully clicked send button on attempt {attempt}")
+                            break
+                        else:
+                            # Check if there's a cooldown timer on the page and extract wait time
+                            timer_script = """
+                                // Look for timer text like "Please wait 0 minute(s) 07 second(s)"
+                                const bodyText = document.body.innerText;
+                                const timerMatch = bodyText.match(/Please wait[\\s\\S]*?(\\d+)\\s*minute.*?(\\d+)\\s*second/i);
+                                if (timerMatch) {
+                                    const minutes = parseInt(timerMatch[1]);
+                                    const seconds = parseInt(timerMatch[2]);
+                                    return {
+                                        text: timerMatch[0],
+                                        totalSeconds: (minutes * 60) + seconds
+                                    };
+                                }
+                                
+                                // Try to find any timer pattern
+                                const timerPattern = /\\d+:\\d+|\\d+\\s*(second|minute|hour)/i;
+                                const allElements = Array.from(document.querySelectorAll('*'));
+                                for (const el of allElements) {
+                                    if (timerPattern.test(el.textContent) && el.textContent.length < 100) {
+                                        return {
+                                            text: el.textContent.trim(),
+                                            totalSeconds: null
+                                        };
+                                    }
+                                }
+                                return null;
+                            """
+                            timer_info = self.driver.execute_script(timer_script)
+                            
+                            if timer_info:
+                                logger.warning(f"⏳ Cooldown detected: {timer_info['text']}")
+                                
+                                # Calculate wait time based on detected timer
+                                if timer_info['totalSeconds']:
+                                    wait_time = timer_info['totalSeconds'] + 5  # Add 5 second buffer
+                                    logger.info(f"Waiting {wait_time} seconds (detected cooldown + buffer)...")
+                                else:
+                                    wait_time = 40  # Default fallback
+                                    logger.info(f"Waiting {wait_time} seconds (default)...")
+                            else:
+                                logger.warning(f"Send button not found (attempt {attempt}). May be on cooldown.")
+                                wait_time = 40  # Default fallback
+                                logger.info(f"Waiting {wait_time} seconds before retrying...")
+                            
+                            time.sleep(wait_time)
+                            
+                            # After cooldown, re-click search button (step 3) and then try send again
+                            logger.info("Re-clicking search button after cooldown...")
+                            search_success = self.driver.execute_script(search_script)
+                            if search_success:
+                                logger.info("✓ Re-clicked search button")
+                                time.sleep(5)  # Wait a bit for results
+                            else:
+                                logger.warning("⚠ Could not re-click search button, will retry send anyway")
+                    
+                    if not success:
+                        raise ServiceActionError(service.name, "send", f"Send button not found after {attempt} attempts")
                     
                 elif step["action"] == "input":
                     self.actions.input_text(
@@ -214,20 +362,121 @@ class ServiceManager:
                         step["xpath"],
                         step["text"],
                         clear_first=False,
+                        timeout=step.get("timeout"),
                         description=step["description"]
                     )
                     
                 elif step["action"] == "click":
-                    self.actions.click_element(
-                        By.XPATH,
-                        step["xpath"],
-                        description=step["description"]
-                    )
+                    # Try CSS selector first if available, otherwise use XPath
+                    if "css" in step:
+                        self.actions.click_element(
+                            By.CSS_SELECTOR,
+                            step["css"],
+                            timeout=step.get("timeout"),
+                            description=step["description"]
+                        )
+                    else:
+                        self.actions.click_element(
+                            By.XPATH,
+                            step["xpath"],
+                            timeout=step.get("timeout"),
+                            description=step["description"]
+                        )
+
+                elif step["action"] == "click_send_button":
+                    # CRITICAL: Refresh stealth protection before send button click
+                    # This fixes the "Browser not supported" error that appears after clicking
+                    if self.driver_manager and hasattr(self.driver_manager, 'refresh_stealth_protection'):
+                        self.driver_manager.refresh_stealth_protection()
                     
-                    # Apply delay if specified
+                    # Try multiple strategies to find the send button (ordered by priority)
+                    logger.info("Attempting to find send button with multiple strategies...")
+                    
+                    strategies = [
+                        ("CSS .wbutton", By.CSS_SELECTOR, ".wbutton"),
+                        ("XPath div[10] wbutton", By.XPATH, "/html/body/div[10]/div/div/div[1]/div/form/button"),
+                        ("XPath send button template", By.XPATH, config.XPATH_TEMPLATES["send_button"].format(div_index=10)),
+                        ("CSS button.wbutton", By.CSS_SELECTOR, "button.wbutton"),
+                        ("XPath wbutton class", By.XPATH, "//button[contains(@class, 'wbutton')]"),
+                        ("XPath DIV10 wbutton", By.XPATH, "/html/body/div[10]//button[contains(@class, 'wbutton')]"),
+                    ]
+                    
+                    button_found = False
+                    for strategy_name, by_type, selector in strategies:
+                        try:
+                            logger.info(f"Trying strategy: {strategy_name}")
+                            self.actions.click_element(
+                                by_type,
+                                selector,
+                                timeout=5,  # Short timeout for each strategy
+                                description=f"send button ({strategy_name})"
+                            )
+                            button_found = True
+                            logger.info(f"✓ Successfully clicked send button using: {strategy_name}")
+                            break
+                        except Exception as e:
+                            logger.debug(f"✗ Strategy '{strategy_name}' failed: {str(e)}")
+                            continue
+                    
+                    if not button_found:
+                        error_msg = f"Failed to find send button after trying {len(strategies)} strategies"
+                        logger.error(error_msg)
+                        raise ServiceActionError(
+                            service_name=service.name,
+                            action="click send button",
+                            reason=error_msg
+                        )
+
+                elif step["action"] == "wait":
                     if "delay" in step:
+                        logger.info(f"Waiting {step['delay']} seconds: {step['description']}")
                         time.sleep(step["delay"])
+
+                elif step["action"] == "debug":
+                    # Debug: Check div[10] content and look for send button or errors
+                    logger.info("=== DEBUG: Checking div[10] after search ===")
+                    try:
+                        # Get full content of div[10]
+                        div10_content = self.actions.driver.execute_script("""
+                            var div10 = document.evaluate('/html/body/div[10]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            return div10 ? div10.innerHTML : 'DIV[10] NOT FOUND';
+                        """)
+                        logger.info(f"DIV[10] CONTENT: {div10_content[:1000]}...")  # First 1000 chars
                         
+                        # Check for error messages
+                        error_msgs = self.actions.driver.execute_script("""
+                            var errors = document.querySelectorAll('.text-danger, .error, .alert, span[class*="danger"]');
+                            var result = [];
+                            for (var i = 0; i < errors.length; i++) {
+                                if (errors[i].textContent.trim()) {
+                                    result.push('ERROR: ' + errors[i].textContent.trim());
+                                }
+                            }
+                            return result.join(' | ');
+                        """)
+                        logger.info(f"ERROR MESSAGES ON PAGE: {error_msgs if error_msgs else 'None'}")
+                        
+                        # Look for ALL buttons on the page
+                        all_buttons = self.actions.driver.execute_script("""
+                            var buttons = document.querySelectorAll('button');
+                            var result = [];
+                            for (var i = 0; i < buttons.length; i++) {
+                                var btn = buttons[i];
+                                var info = 'BTN' + i + ': class="' + btn.className + '" text="' + btn.textContent.trim().substring(0, 50) + '"';
+                                result.push(info);
+                            }
+                            return result.join(' | ');
+                        """)
+                        logger.info(f"ALL BUTTONS ON PAGE: {all_buttons}")
+                        
+                    except Exception as e:
+                        logger.info(f"DEBUG ERROR: {str(e)}")
+                    logger.info("=== END DEBUG ===")
+
+                # Apply delay if specified
+                if "delay" in step and step["action"] != "wait" and step["action"] != "debug" and step["action"] != "click_send_button":
+                    time.sleep(step["delay"])
+                    
             except Exception as e:
                 logger.error(f"Failed to {step['description']}: {str(e)}")
                 raise ServiceActionError(

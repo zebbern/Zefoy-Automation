@@ -66,6 +66,56 @@ class SeleniumActions:
         self.driver = driver
         self.wait = WebDriverWait(driver, config.DEFAULT_TIMEOUT)
     
+    def execute_jquery_click(self, selector: str, description: str = "element") -> bool:
+        """
+        Click element using jQuery trigger method (most reliable for Zefoy)
+        
+        Args:
+            selector: jQuery selector (e.g., '.t-views-button')
+            description: Element description for logging
+            
+        Returns:
+            True if clicked successfully, False otherwise
+        """
+        try:
+            script = f"""
+                var result = $('{selector}').first().trigger('click');
+                return result.length > 0;
+            """
+            success = self.driver.execute_script(script)
+            if success:
+                logger.info(f"Clicked via jQuery: {description}")
+                return True
+            else:
+                logger.error(f"Element not found for jQuery click: {description}")
+                return False
+        except Exception as e:
+            logger.error(f"jQuery click failed for {description}: {str(e)}")
+            return False
+    
+    def execute_forced_click(self, selector_script: str, description: str = "element") -> bool:
+        """
+        Force click using native JS with multiple fallbacks (for search/send buttons)
+        
+        Args:
+            selector_script: JavaScript to find and click the button
+            description: Element description for logging
+            
+        Returns:
+            True if clicked successfully, False otherwise
+        """
+        try:
+            success = self.driver.execute_script(selector_script)
+            if success or success is None:  # Some scripts don't return value
+                logger.info(f"Clicked via forced JS: {description}")
+                return True
+            else:
+                logger.error(f"Forced click failed: {description}")
+                return False
+        except Exception as e:
+            logger.error(f"Forced click error for {description}: {str(e)}")
+            return False
+    
     @retry_on_exception(
         max_retries=config.MAX_RETRIES,
         delay=config.RETRY_DELAY,
@@ -131,16 +181,21 @@ class SeleniumActions:
         """
         timeout = timeout or config.DEFAULT_TIMEOUT
         wait = WebDriverWait(self.driver, timeout)
-        
+
         try:
-            element = wait.until(EC.element_to_be_clickable((by, value)))
-            element.click()
-            logger.info(f"Clicked: {description or value}")
+            # Wait for element to exist in DOM  
+            element = wait.until(EC.presence_of_element_located((by, value)))
+            logger.debug(f"Found element: {description or value}")
+            
+            # Use JavaScript to click (more reliable)
+            self.driver.execute_script("arguments[0].click();", element)
+            logger.info(f"Clicked via JavaScript: {description or value}")
+            
         except TimeoutException:
             error_msg = description or f"element with {by}={value}"
-            logger.error(f"Cannot click element: {error_msg}")
+            logger.error(f"Cannot find element: {error_msg}")
             raise ElementNotFoundError(error_msg, value if by == By.XPATH else None)
-    
+
     @retry_on_exception(
         max_retries=config.MAX_RETRIES,
         delay=config.RETRY_DELAY,
@@ -156,8 +211,8 @@ class SeleniumActions:
         description: str = None
     ) -> None:
         """
-        Input text into an element
-        
+        Input text into an element using JavaScript (more reliable)
+
         Args:
             by: Selenium By locator type
             value: Locator value
@@ -165,19 +220,34 @@ class SeleniumActions:
             clear_first: Whether to clear existing text first
             timeout: Custom timeout in seconds
             description: Human-readable element description
-            
+
         Raises:
             ElementNotFoundError: If element is not found
         """
-        element = self.find_element(by, value, timeout, description)
+        timeout = timeout or config.DEFAULT_TIMEOUT
+        wait = WebDriverWait(self.driver, timeout)
         
-        if clear_first:
-            element.clear()
-            logger.debug(f"Cleared input field: {description or value}")
-        
-        element.send_keys(text)
-        logger.info(f"Entered text into: {description or value}")
-    
+        try:
+            # Wait for element to exist in DOM
+            element = wait.until(EC.presence_of_element_located((by, value)))
+            logger.debug(f"Found element: {description or value}")
+            
+            # Use JavaScript to set the value (more reliable)
+            if clear_first:
+                self.driver.execute_script("arguments[0].value = '';", element)
+            
+            self.driver.execute_script("arguments[0].value = arguments[1];", element, text)
+            # Trigger input events to make sure the page recognizes the change
+            self.driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", element)
+            self.driver.execute_script("arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", element)
+            
+            logger.info(f"Entered text via JavaScript: {description or value}")
+            
+        except TimeoutException:
+            error_msg = description or f"element with {by}={value}"
+            logger.error(f"Element not found: {error_msg}")
+            raise ElementNotFoundError(error_msg, value if by == By.XPATH else None)
+
     def execute_script(
         self,
         script: str,

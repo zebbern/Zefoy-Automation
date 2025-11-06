@@ -4,3 +4,5 @@ webdriver-manager>=4.0.0
 requests==2.31.0
 python-dotenv==1.0.0
 rich==13.0.0
+undetected-chromedriver>=3.5.0
+setuptools>=65.0.0

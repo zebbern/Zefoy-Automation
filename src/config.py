@@ -18,7 +18,7 @@ LOG_LEVEL = 3  # Chrome log level (3 = WARNING)
 # Use existing Chrome profile (helps bypass Cloudflare)
 # Set to False to use a clean session (recommended if Chrome is open)
 USE_EXISTING_PROFILE = False
-CHROME_PROFILE_PATH = None  # Will auto-detect default profile
+CHROME_PROFILE_PATH = r'C:\Users\Deobf\Zefoy-Automation\chrome_profile'  # Will auto-detect default profile
 
 # Notification Settings
 NOTIFICATION_PREFERENCE = 2  # 1: Allow, 2: Block
@@ -55,7 +55,7 @@ SERVICES = {
     ),
     "views": (
         "/html/body/div[3]/div/div[2]/div/div/div[6]/div/button",
-        7
+        10
     ),
     "shares": (
         "/html/body/div[3]/div/div[2]/div/div/div[7]/div/button",
@@ -116,3 +116,7 @@ class Colors:
     BLUE = "\033[94m"
     MAGENTA = "\033[95m"
     CYAN = "\033[96m"
+
+
+
+

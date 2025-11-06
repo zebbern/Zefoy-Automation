@@ -68,7 +68,7 @@ class ZefoyBot:
             self.actions = SeleniumActions(driver)
             
             # Initialize service manager
-            self.service_manager = ServiceManager(driver)
+            self.service_manager = ServiceManager(driver, self.driver_manager)
             
             logger.info("Bot initialization complete")
             
@@ -315,11 +315,12 @@ class ZefoyBot:
                 status_color = Fore.GREEN
                 status_text = "[✓ WORKING]"
             else:
-                status_color = Fore.RED
-                status_text = "[✗ OFFLINE]"
+                status_color = Fore.YELLOW  # Changed from RED to YELLOW
+                status_text = "[⚠ OFFLINE - WILL ATTEMPT]"  # Updated message
             
             print(f"{Fore.BLUE}[{index}] {service_name.ljust(20)} {status_color}{status_text}")
         
+        print(Fore.CYAN + "\nNote: All services can be selected regardless of detected status.")
         print()
     
     def _get_service_choice(self) -> str:
