@@ -391,8 +391,7 @@ class ServiceManager:
                 elif step["action"] == "click_send_button":
                     # CRITICAL: Refresh stealth protection before send button click
                     # This fixes the "Browser not supported" error that appears after clicking
-                    if self.driver_manager and hasattr(self.driver_manager, 'refresh_stealth_protection'):
-                        self.driver_manager.refresh_stealth_protection()
+                    self._refresh_stealth_protection(delay=0.5)
                     
                     # Try multiple strategies to find the send button (ordered by priority)
                     logger.info("Attempting to find send button with multiple strategies...")
