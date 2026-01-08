@@ -219,6 +219,15 @@ class ServiceManager:
         for step in steps:
             try:
                 if step["action"] == "input_jquery":
+                    # CRITICAL: Refresh stealth protection before any interaction
+                    logger.info("Refreshing stealth protection before URL input...")
+                    if hasattr(self.driver_manager, 'refresh_stealth_protection'):
+                        self.driver_manager.refresh_stealth_protection()
+                    elif hasattr(self.driver, 'refresh_stealth_protection'):
+                        self.driver.refresh_stealth_protection()
+                    
+                    time.sleep(0.3)  # Brief delay after refresh
+                    
                     # Use jQuery to set input value (proven working method)
                     script = f"""
                         var input = $('input[placeholder="Enter Video URL"]').filter(':visible').first();
@@ -232,6 +241,16 @@ class ServiceManager:
                     logger.info(f"Entered text via jQuery: {step['description']}")
                     
                 elif step["action"] == "click_search":
+                    # CRITICAL: Refresh stealth protection before search button click
+                    logger.info("Refreshing stealth protection before search...")
+                    if hasattr(self.driver_manager, 'refresh_stealth_protection'):
+                        self.driver_manager.refresh_stealth_protection()
+                    elif hasattr(self.driver, 'refresh_stealth_protection'):
+                        self.driver.refresh_stealth_protection()
+                    
+                    # Add a small delay after refresh
+                    time.sleep(0.5)
+                    
                     # Use forced JS click for search button (proven working method)
                     script = """
                         const btn = Array.from(document.querySelectorAll('button[type="submit"], button'))
@@ -284,12 +303,16 @@ class ServiceManager:
                         attempt += 1
                         logger.info(f"Attempting to click send button (attempt {attempt})...")
                         
-                        # CRITICAL: Refresh stealth protection before send button click
+                        # CRITICAL: Refresh stealth protection BEFORE send button click
                         # This fixes the "Browser not supported" error that appears after clicking
-                        if hasattr(self.driver, 'refresh_stealth_protection'):
-                            self.driver.refresh_stealth_protection()
-                        elif hasattr(self.driver_manager, 'refresh_stealth_protection'):
+                        logger.info("Refreshing stealth protection before critical action...")
+                        if hasattr(self.driver_manager, 'refresh_stealth_protection'):
                             self.driver_manager.refresh_stealth_protection()
+                        elif hasattr(self.driver, 'refresh_stealth_protection'):
+                            self.driver.refresh_stealth_protection()
+                        
+                        # Add a small delay after refresh to let the page settle
+                        time.sleep(0.5)
                         
                         # Try to click send button
                         success = self.driver.execute_script(send_script)
@@ -344,7 +367,15 @@ class ServiceManager:
                             
                             time.sleep(wait_time)
                             
-                            # After cooldown, re-click search button (step 3) and then try send again
+                            # After cooldown, refresh stealth protection again and re-click search button (step 3)
+                            logger.info("Refreshing stealth protection after cooldown...")
+                            if hasattr(self.driver_manager, 'refresh_stealth_protection'):
+                                self.driver_manager.refresh_stealth_protection()
+                            elif hasattr(self.driver, 'refresh_stealth_protection'):
+                                self.driver.refresh_stealth_protection()
+                            
+                            time.sleep(0.5)  # Brief delay after refresh
+                            
                             logger.info("Re-clicking search button after cooldown...")
                             search_success = self.driver.execute_script(search_script)
                             if search_success:
