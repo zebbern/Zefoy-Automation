@@ -220,13 +220,7 @@ class ServiceManager:
             try:
                 if step["action"] == "input_jquery":
                     # CRITICAL: Refresh stealth protection before any interaction
-                    logger.info("Refreshing stealth protection before URL input...")
-                    if hasattr(self.driver_manager, 'refresh_stealth_protection'):
-                        self.driver_manager.refresh_stealth_protection()
-                    elif hasattr(self.driver, 'refresh_stealth_protection'):
-                        self.driver.refresh_stealth_protection()
-                    
-                    time.sleep(0.3)  # Brief delay after refresh
+                    self._refresh_stealth_protection(delay=0.3)
                     
                     # Use jQuery to set input value (proven working method)
                     script = f"""
@@ -242,14 +236,7 @@ class ServiceManager:
                     
                 elif step["action"] == "click_search":
                     # CRITICAL: Refresh stealth protection before search button click
-                    logger.info("Refreshing stealth protection before search...")
-                    if hasattr(self.driver_manager, 'refresh_stealth_protection'):
-                        self.driver_manager.refresh_stealth_protection()
-                    elif hasattr(self.driver, 'refresh_stealth_protection'):
-                        self.driver.refresh_stealth_protection()
-                    
-                    # Add a small delay after refresh
-                    time.sleep(0.5)
+                    self._refresh_stealth_protection(delay=0.5)
                     
                     # Use forced JS click for search button (proven working method)
                     script = """
@@ -305,14 +292,7 @@ class ServiceManager:
                         
                         # CRITICAL: Refresh stealth protection BEFORE send button click
                         # This fixes the "Browser not supported" error that appears after clicking
-                        logger.info("Refreshing stealth protection before critical action...")
-                        if hasattr(self.driver_manager, 'refresh_stealth_protection'):
-                            self.driver_manager.refresh_stealth_protection()
-                        elif hasattr(self.driver, 'refresh_stealth_protection'):
-                            self.driver.refresh_stealth_protection()
-                        
-                        # Add a small delay after refresh to let the page settle
-                        time.sleep(0.5)
+                        self._refresh_stealth_protection(delay=0.5)
                         
                         # Try to click send button
                         success = self.driver.execute_script(send_script)
@@ -368,13 +348,7 @@ class ServiceManager:
                             time.sleep(wait_time)
                             
                             # After cooldown, refresh stealth protection again and re-click search button (step 3)
-                            logger.info("Refreshing stealth protection after cooldown...")
-                            if hasattr(self.driver_manager, 'refresh_stealth_protection'):
-                                self.driver_manager.refresh_stealth_protection()
-                            elif hasattr(self.driver, 'refresh_stealth_protection'):
-                                self.driver.refresh_stealth_protection()
-                            
-                            time.sleep(0.5)  # Brief delay after refresh
+                            self._refresh_stealth_protection(delay=0.5)
                             
                             logger.info("Re-clicking search button after cooldown...")
                             search_success = self.driver.execute_script(search_script)
@@ -518,6 +492,22 @@ class ServiceManager:
         
         # Wait for service cooldown
         self._wait_for_service_cooldown(service.name)
+    
+    def _refresh_stealth_protection(self, delay: float = 0.5) -> None:
+        """
+        Refresh stealth protection to prevent bot detection
+        
+        Args:
+            delay: Seconds to wait after refresh for page to settle (default: 0.5)
+        """
+        logger.info("Refreshing stealth protection...")
+        if hasattr(self.driver_manager, 'refresh_stealth_protection'):
+            self.driver_manager.refresh_stealth_protection()
+        elif hasattr(self.driver, 'refresh_stealth_protection'):
+            self.driver.refresh_stealth_protection()
+        
+        if delay > 0:
+            time.sleep(delay)
     
     def _wait_for_service_cooldown(self, service_name: str) -> None:
         """
