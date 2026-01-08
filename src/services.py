@@ -347,9 +347,10 @@ class ServiceManager:
                             
                             time.sleep(wait_time)
                             
-                            # After cooldown, refresh stealth protection again and re-click search button (step 3)
+                            # After cooldown, refresh stealth and prepare to re-click search button
                             self._refresh_stealth_protection(delay=0.5)
                             
+                            # Re-click search button (step 3) to get fresh results
                             logger.info("Re-clicking search button after cooldown...")
                             search_success = self.driver.execute_script(search_script)
                             if search_success:
@@ -500,10 +501,17 @@ class ServiceManager:
             delay: Seconds to wait after refresh for page to settle (default: 0.5)
         """
         logger.info("Refreshing stealth protection...")
+        refreshed = False
+        
         if hasattr(self.driver_manager, 'refresh_stealth_protection'):
             self.driver_manager.refresh_stealth_protection()
+            refreshed = True
         elif hasattr(self.driver, 'refresh_stealth_protection'):
             self.driver.refresh_stealth_protection()
+            refreshed = True
+        
+        if not refreshed:
+            logger.warning("Stealth protection refresh not available - detection risk increased")
         
         if delay > 0:
             time.sleep(delay)
