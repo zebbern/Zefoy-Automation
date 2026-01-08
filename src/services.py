@@ -220,7 +220,7 @@ class ServiceManager:
             try:
                 if step["action"] == "input_jquery":
                     # CRITICAL: Refresh stealth protection before any interaction
-                    self._refresh_stealth_protection(delay=0.3)
+                    self._refresh_stealth_protection(delay=config.STEALTH_REFRESH_DELAY_SHORT)
                     
                     # Use jQuery to set input value (proven working method)
                     script = f"""
@@ -236,7 +236,7 @@ class ServiceManager:
                     
                 elif step["action"] == "click_search":
                     # CRITICAL: Refresh stealth protection before search button click
-                    self._refresh_stealth_protection(delay=0.5)
+                    self._refresh_stealth_protection()  # Uses standard delay from config
                     
                     # Use forced JS click for search button (proven working method)
                     script = """
@@ -292,7 +292,7 @@ class ServiceManager:
                         
                         # CRITICAL: Refresh stealth protection BEFORE send button click
                         # This fixes the "Browser not supported" error that appears after clicking
-                        self._refresh_stealth_protection(delay=0.5)
+                        self._refresh_stealth_protection()  # Uses standard delay from config
                         
                         # Try to click send button
                         success = self.driver.execute_script(send_script)
@@ -348,7 +348,7 @@ class ServiceManager:
                             time.sleep(wait_time)
                             
                             # After cooldown, refresh stealth and prepare to re-click search button
-                            self._refresh_stealth_protection(delay=0.5)
+                            self._refresh_stealth_protection()  # Uses standard delay from config
                             
                             # Re-click search button (step 3) to get fresh results
                             logger.info("Re-clicking search button after cooldown...")
@@ -392,7 +392,7 @@ class ServiceManager:
                 elif step["action"] == "click_send_button":
                     # CRITICAL: Refresh stealth protection before send button click
                     # This fixes the "Browser not supported" error that appears after clicking
-                    self._refresh_stealth_protection(delay=0.5)
+                    self._refresh_stealth_protection()  # Uses standard delay from config
                     
                     # Try multiple strategies to find the send button (ordered by priority)
                     logger.info("Attempting to find send button with multiple strategies...")
@@ -493,13 +493,25 @@ class ServiceManager:
         # Wait for service cooldown
         self._wait_for_service_cooldown(service.name)
     
-    def _refresh_stealth_protection(self, delay: float = 0.5) -> None:
+    def _refresh_stealth_protection(self, delay: float = None) -> None:
         """
         Refresh stealth protection to prevent bot detection
         
+        This method calls the driver's stealth refresh function to remove automation
+        traces and re-apply browser mocking. If the stealth method is unavailable,
+        a warning is logged and execution continues (with increased detection risk).
+        
         Args:
-            delay: Seconds to wait after refresh for page to settle (default: 0.5)
+            delay: Seconds to wait after refresh for page to settle. 
+                   If None, uses config.STEALTH_REFRESH_DELAY_STANDARD (default: 0.5)
+        
+        Note:
+            Method continues execution even if stealth refresh is unavailable,
+            logging a warning to indicate increased bot detection risk.
         """
+        if delay is None:
+            delay = config.STEALTH_REFRESH_DELAY_STANDARD
+        
         logger.info("Refreshing stealth protection...")
         refreshed = False
         
@@ -513,8 +525,8 @@ class ServiceManager:
         if not refreshed:
             logger.warning("Stealth protection refresh not available - detection risk increased")
         
-        if delay > 0:
-            time.sleep(delay)
+        # Always apply delay if specified (even if 0, for explicit control)
+        time.sleep(delay)
     
     def _wait_for_service_cooldown(self, service_name: str) -> None:
         """

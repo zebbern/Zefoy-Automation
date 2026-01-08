@@ -28,6 +28,11 @@ DEFAULT_TIMEOUT = 10
 PAGE_LOAD_TIMEOUT = 3
 SEARCH_DELAY = 3
 
+# Stealth Protection Refresh Delays (in seconds)
+# Time to wait after refreshing stealth protection for page to settle
+STEALTH_REFRESH_DELAY_SHORT = 0.3  # For low-risk actions like URL input
+STEALTH_REFRESH_DELAY_STANDARD = 0.5  # For critical actions like button clicks
+
 # Service Wait Times (min, max) in seconds
 SERVICE_WAIT_TIMES = {
     "followers": (125, 135),
