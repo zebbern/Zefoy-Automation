@@ -525,7 +525,7 @@ class ServiceManager:
         if not refreshed:
             logger.warning("Stealth protection refresh not available - detection risk increased")
         
-        # Always apply delay if specified (even if 0, for explicit control)
+        # Apply delay for page to settle (allows 0 for no delay if explicitly specified)
         time.sleep(delay)
     
     def _wait_for_service_cooldown(self, service_name: str) -> None:
