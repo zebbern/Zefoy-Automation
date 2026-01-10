@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zefoy-cli"
+version = "0.1.0"
+description = "CLI automation tool for zefoy.com TikTok services"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.40.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+zefoy = "zefoy_cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["zefoy_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = ["zefoy_cli"]
