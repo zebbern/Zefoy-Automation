@@ -5,7 +5,7 @@
 
 ## Automate Zefoy Interactions With No Effort
 
-**v2.0.0 - Clean Architecture Edition**
+**v3.0.0 - Clean Architecture Edition**
 
 ---
 
