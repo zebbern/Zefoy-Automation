@@ -1,29 +1,47 @@
-# 🚀 Zefoy-CLI Automation
+<div align="center">
+  <a href="https://github.com/zebbern/Zefoy-Automation">
+    <img src="https://www.edigitalagency.com.au/wp-content/uploads/TikTok-icon-glyph.png" alt="Logo" width="120" height="121">
+  </a>
 
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Playwright](https://img.shields.io/badge/Playwright-Automation-green.svg)](https://playwright.dev/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+## Automate Zefoy Interactions With No Effort
 
-> **Automate TikTok engagement (Hearts, Favorites, Comment Hearts) via zefoy.com with intelligent CAPTCHA solving.**
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 🤖 **Auto-CAPTCHA Solving** | Uses EasyOCR + spell correction (pyenchant) for accurate text recognition |
-| ❤️ **Hearts Service** | Automatically send hearts to TikTok videos |
-| ⭐ **Favorites Service** | Add videos to favorites automatically |
-| 💬 **Comment Hearts** | Send hearts to video comments |
-| ⏱️ **Rate Limit Handling** | Intelligent auto-wait when rate limited |
-| 🌐 **Proxy Support** | Route traffic through HTTP proxies |
-| 🎯 **Flexible CLI** | Interactive and command-line service selection |
-| 📊 **Verbose Mode** | Detailed debug output for troubleshooting |
+**v2.0.0 - Clean Architecture Edition**
 
 ---
 
-## 🚀 Quick Start
+| **Features** | **Description** |
+|-------------|-----------------|
+| **Virtual Environment Setup** | Automatic venv creation and dependency management. |
+| **One-Click Launch** | Auto-setup and run with a single command. |
+| **Smart Popup Handling** | Auto-dismisses alerts, clicks close buttons, removes overlays. |
+| **Auto-CAPTCHA Solving** | Uses EasyOCR + spell correction for accurate text recognition. |
+| **Hearts Automation** | Perform automated hearts on specified videos. |
+| **Favorites Automation** | Add videos to favorites automatically. |
+| **Comment Hearts** | Boost engagement by automating comment hearts. |
+| **Dynamic Service Detection** | Automatically detects available services on page load. |
+| **Continuous Execution** | Automatically loops tasks until stopped by the user. |
+| **Rate Limit Handling** | Intelligent auto-wait when rate limited. |
+| **Proxy Support** | Route traffic through HTTP proxies. |
+| **Error Recovery** | Robust error handling and automatic retries. |
+| **Clean Architecture** | Modular, maintainable, and easy to extend. |
+
+---
+
+</div>
+
+## Overview
+
+The **Zefoy-CLI Automation** leverages Python and Playwright to automate TikTok interactions via [Zefoy](https://zefoy.com/). Completely refactored with clean architecture and robust popup handling.
+
+### Just run the command ->
+
+```bash
+python main.py --auto-captcha "https://www.tiktok.com/@user/video/123456789"
+```
+
+---
+
+## Quick Start
 
 ```bash
 # Clone and install
@@ -37,7 +55,7 @@ python main.py --auto-captcha "https://www.tiktok.com/@user/video/123456789"
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Method 1: Auto-Install Script (Recommended)
 
@@ -79,7 +97,7 @@ playwright install chromium
 
 ---
 
-## 💻 Usage
+## Usage
 
 ### Interactive Mode
 
@@ -116,7 +134,7 @@ python main.py hearts --count 10 --auto-captcha --verbose "https://www.tiktok.co
 
 ---
 
-## 📋 Command Line Reference
+## Command Line Reference
 
 | Argument | Description | Default |
 |----------|-------------|---------|
@@ -132,34 +150,34 @@ python main.py hearts --count 10 --auto-captcha --verbose "https://www.tiktok.co
 
 | Service | Command | Description |
 |---------|---------|-------------|
-| ❤️ Hearts | `hearts` | Send hearts/likes to the video |
-| ⭐ Favorites | `favorites` | Add video to favorites |
-| 💬 Comment Hearts | `comment-hearts` | Send hearts to video comments |
+| Hearts | `hearts` | Send hearts/likes to the video |
+| Favorites | `favorites` | Add video to favorites |
+| Comment Hearts | `comment-hearts` | Send hearts to video comments |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Zefoy-Automation/
-├── 📄 main.py                 # CLI entry point & argument parsing
-├── 📄 install.py              # Auto-installer script
-├── 📄 requirements.txt        # Python dependencies
-├── 📄 pyproject.toml          # Project configuration
+├── main.py                    # CLI entry point & argument parsing
+├── install.py                 # Auto-installer script
+├── requirements.txt           # Python dependencies
+├── pyproject.toml             # Project configuration
 │
-├── 🌐 browser/
+├── browser/
 │   ├── automation.py          # Browser control & navigation
 │   ├── captcha_solver.py      # OCR + spell correction logic
 │   ├── popup_handlers.py      # Handle popups & modals
 │   └── js_injections.py       # JavaScript helper functions
 │
-├── ⚙️ services/
+├── services/
 │   ├── base_service.py        # Abstract service base class
 │   ├── hearts.py              # Hearts service implementation
 │   ├── favorites.py           # Favorites service implementation
 │   └── comment_hearts.py      # Comment Hearts service implementation
 │
-└── 🛠️ utils/
+└── utils/
     ├── timer.py               # Wait time parsing & countdown
     ├── colors.py              # Console color formatting
     └── health_check.py        # Site availability checking
@@ -167,17 +185,17 @@ Zefoy-Automation/
 
 ---
 
-## 🧠 How It Works
+## How It Works
 
 ### CAPTCHA Solving Pipeline
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Screenshot     │ ──► │  EasyOCR        │ ──► │  Spell          │
+│  Screenshot     │ --> │  EasyOCR        │ --> │  Spell          │
 │  CAPTCHA Image  │     │  Text Extract   │     │  Correction     │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
                                                         │
-                                                        ▼
+                                                        v
                                                ┌─────────────────┐
                                                │  Submit         │
                                                │  Solution       │
@@ -186,7 +204,7 @@ Zefoy-Automation/
 
 1. **Screenshot Capture**: The browser takes a screenshot of the CAPTCHA region
 2. **OCR Processing**: EasyOCR extracts text from the image
-3. **Spell Correction**: pyenchant corrects common OCR errors (e.g., "l" → "I", "0" → "O")
+3. **Spell Correction**: pyenchant corrects common OCR errors (e.g., "l" -> "I", "0" -> "O")
 4. **Submission**: The corrected text is entered and submitted
 
 ### Rate Limit Handling
@@ -198,26 +216,26 @@ When Zefoy rate-limits requests, the automation:
 
 ---
 
-## 📦 Dependencies
+## Dependencies
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `playwright` | ≥1.40.0 | Browser automation |
-| `easyocr` | ≥1.7.0 | Optical Character Recognition |
-| `numpy` | ≥1.24.0 | Array processing for OCR |
-| `Pillow` | ≥10.0.0 | Image processing |
-| `pyenchant` | ≥3.2.0 | Spell checking/correction |
-| `pytest` | ≥7.0.0 | Testing framework |
-| `pytest-asyncio` | ≥0.21.0 | Async test support |
+| `playwright` | >=1.40.0 | Browser automation |
+| `easyocr` | >=1.7.0 | Optical Character Recognition |
+| `numpy` | >=1.24.0 | Array processing for OCR |
+| `Pillow` | >=10.0.0 | Image processing |
+| `pyenchant` | >=3.2.0 | Spell checking/correction |
+| `pytest` | >=7.0.0 | Testing framework |
+| `pytest-asyncio` | >=0.21.0 | Async test support |
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
 <details>
-<summary><b>❌ CAPTCHA solving fails repeatedly</b></summary>
+<summary><b>CAPTCHA solving fails repeatedly</b></summary>
 
 - Ensure EasyOCR is properly installed: `pip install easyocr --upgrade`
 - Try running with `--verbose` to see OCR output
@@ -226,7 +244,7 @@ When Zefoy rate-limits requests, the automation:
 </details>
 
 <details>
-<summary><b>❌ "Browser not installed" error</b></summary>
+<summary><b>"Browser not installed" error</b></summary>
 
 Run the Playwright installer:
 ```bash
@@ -236,7 +254,7 @@ playwright install chromium
 </details>
 
 <details>
-<summary><b>❌ Rate limited immediately</b></summary>
+<summary><b>Rate limited immediately</b></summary>
 
 - Clear cookies: `python main.py --clear-cookies ...`
 - Try using a proxy: `--proxy http://...`
@@ -245,7 +263,7 @@ playwright install chromium
 </details>
 
 <details>
-<summary><b>❌ pyenchant installation fails on Windows</b></summary>
+<summary><b>pyenchant installation fails on Windows</b></summary>
 
 1. Download the enchant library from [here](https://github.com/pyenchant/pyenchant/wiki/Download-The-Enchant-Library)
 2. Or use: `pip install pyenchant --no-build-isolation`
@@ -253,7 +271,7 @@ playwright install chromium
 </details>
 
 <details>
-<summary><b>❌ Service shows "Not Available"</b></summary>
+<summary><b>Service shows "Not Available"</b></summary>
 
 Zefoy occasionally disables services. Check the site manually or try a different service.
 
@@ -269,7 +287,7 @@ python main.py --verbose --auto-captcha "https://www.tiktok.com/@user/video/123"
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Here's how to get started:
 
@@ -295,7 +313,7 @@ pytest
 
 ---
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 > **This tool is provided for educational and research purposes only.**
 
@@ -312,7 +330,7 @@ pytest
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -320,8 +338,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ for automation enthusiasts**
+**Made with love for automation enthusiasts**
 
-⭐ Star this repo if you find it useful!
+Star this repo if you find it useful!
 
 </div>
