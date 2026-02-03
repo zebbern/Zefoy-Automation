@@ -43,6 +43,9 @@ htmlcov/
 # Playwright
 .playwright-mcp/
 
+# GitHub (personal agent configs)
+.github/
+
 # Logs
 *.log
 logs/
