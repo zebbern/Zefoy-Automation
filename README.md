@@ -33,7 +33,17 @@
 
 The **Zefoy-CLI Automation** leverages Python and Playwright to automate TikTok interactions via [Zefoy](https://zefoy.com/). Completely refactored with clean architecture and robust popup handling.
 
-### Just run the command ->
+### Fully Automated (Headless Mode)
+
+Run completely in the background with no browser window:
+
+```bash
+python main.py --headless --auto-captcha --service hearts "https://www.tiktok.com/@user/video/123456789"
+```
+
+This command runs 100% automated - no user interaction needed!
+
+### Standard Mode (With Browser Window)
 
 ```bash
 python main.py --auto-captcha "https://www.tiktok.com/@user/video/123456789"
@@ -45,12 +55,12 @@ python main.py --auto-captcha "https://www.tiktok.com/@user/video/123456789"
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/Zefoy-Automation.git
+git clone https://github.com/zebbern/Zefoy-Automation.git
 cd Zefoy-Automation
 python install.py
 
-# Run with auto-CAPTCHA
-python main.py --auto-captcha "https://www.tiktok.com/@user/video/123456789"
+# Run fully automated (headless)
+python main.py --headless --auto-captcha "https://www.tiktok.com/@user/video/123456789"
 ```
 
 ---
@@ -139,12 +149,19 @@ python main.py hearts --count 10 --auto-captcha --verbose "https://www.tiktok.co
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `VIDEO_URL` | TikTok video URL (required) | - |
-| `SERVICE` | Service to use: `hearts`, `favorites`, `comment-hearts` | Interactive |
+| `--service SERVICE` | Service: `hearts`, `favorites`, `chearts` | Interactive |
+| `--headless` | Run browser invisibly (no window) | Disabled |
 | `--auto-captcha` | Enable automatic CAPTCHA solving with OCR | Disabled |
 | `--verbose` | Show detailed debug output | Disabled |
 | `--proxy URL` | HTTP proxy URL (e.g., `http://user:pass@host:port`) | None |
 | `--count N` | Number of sends to perform | 1 |
 | `--clear-cookies` | Clear browser cookies on start | Disabled |
+
+### Recommended Command (Fully Automated)
+
+```bash
+python main.py --headless --auto-captcha --service hearts "YOUR_VIDEO_URL"
+```
 
 ### Services
 
