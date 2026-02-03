@@ -5,12 +5,13 @@
 
 ## Automate Zefoy Interactions With No Effort
 
-**v3.0.0 - Clean Architecture Edition**
+**v3.1.0 - TUI Edition**
 
 ---
 
 | **Features** | **Description** |
 |-------------|-----------------|
+| **🆕 Terminal UI (TUI)** | Beautiful interactive terminal interface with live timer. |
 | **Virtual Environment Setup** | Automatic venv creation and dependency management. |
 | **One-Click Launch** | Auto-setup and run with a single command. |
 | **Smart Popup Handling** | Auto-dismisses alerts, clicks close buttons, removes overlays. |
@@ -62,6 +63,32 @@ python install.py
 # Run fully automated (headless)
 python main.py --headless --auto-captcha "https://www.tiktok.com/@user/video/123456789"
 ```
+
+---
+
+## 🆕 Terminal UI (TUI)
+
+A beautiful interactive terminal interface for easier automation:
+
+```bash
+python tui_main.py
+```
+
+### TUI Features
+
+- **Interactive URL input** - Paste your TikTok video URL
+- **Service selection** - Choose Hearts, Favorites, or Comment Hearts
+- **Live countdown timer** - Watch the rate limit countdown in real-time
+- **Progress tracking** - See your progress at a glance
+- **Headless mode** - Runs completely in the background (no browser window)
+
+### TUI Controls
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Confirm selection |
+| `Escape` | Go back |
+| `Q` | Quit |
 
 ---
 
