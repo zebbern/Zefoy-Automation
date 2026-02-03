@@ -254,9 +254,13 @@ class CaptchaSolver:
             self._debug(f"Failed to submit: {e}")
             return False
     
-    async def solve(self, max_attempts: int = 3) -> bool:
+    async def solve(self, max_attempts: int = 25, progress_callback=None) -> bool:
         """
         Attempt to solve the CAPTCHA.
+        
+        Args:
+            max_attempts: Maximum number of solve attempts.
+            progress_callback: Optional async callback(attempt, max_attempts, status) for progress updates.
         
         Returns True if solved successfully, False otherwise.
         """
@@ -267,6 +271,10 @@ class CaptchaSolver:
         for attempt in range(1, max_attempts + 1):
             try:
                 self._debug(f"Attempt {attempt}/{max_attempts}")
+                
+                # Report progress
+                if progress_callback:
+                    await progress_callback(attempt, max_attempts, "trying")
                 
                 # Wait for CAPTCHA to be fully rendered
                 await asyncio.sleep(1.0)

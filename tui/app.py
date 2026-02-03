@@ -26,12 +26,10 @@ from textual.screen import Screen
 from textual.widgets import (
     Button,
     Footer,
-    Header,
     Input,
     Label,
     ListItem,
     ListView,
-    ProgressBar,
     Rule,
     Static,
     RichLog,
@@ -92,10 +90,25 @@ class WelcomeScreen(Screen):
         color: $error;
         text-align: center;
     }
+    
+    #button-row {
+        height: 3;
+        margin-top: 1;
+    }
+    
+    #start-btn {
+        width: 1fr;
+    }
+    
+    #settings-btn {
+        width: auto;
+        min-width: 12;
+    }
     """
     
     BINDINGS = [
         Binding("escape", "quit", "Quit"),
+        Binding("s", "open_settings", "Settings"),
     ]
     
     def compose(self) -> ComposeResult:
@@ -110,7 +123,11 @@ class WelcomeScreen(Screen):
                 Label("Enter TikTok Video URL:"),
                 Input(placeholder="https://www.tiktok.com/@user/video/123...", id="url-input"),
                 Static("", id="error-message", classes="error-message"),
-                Button("Continue", id="start-btn", variant="primary"),
+                Horizontal(
+                    Button("▶ Start", id="start-btn", variant="primary"),
+                    Button("Settings", id="settings-btn", variant="default"),
+                    id="button-row",
+                ),
                 id="welcome-box",
             ),
             id="welcome-container",
@@ -118,6 +135,13 @@ class WelcomeScreen(Screen):
     
     def action_quit(self) -> None:
         self.app.exit()
+    
+    def action_open_settings(self) -> None:
+        self.app.push_screen("settings")
+    
+    @on(Button.Pressed, "#settings-btn")
+    def on_settings(self) -> None:
+        self.app.push_screen("settings")
     
     @on(Button.Pressed, "#start-btn")
     @on(Input.Submitted, "#url-input")
@@ -137,6 +161,374 @@ class WelcomeScreen(Screen):
         
         self.app.video_url = url
         self.app.push_screen("service")
+
+
+class SettingsScreen(Screen):
+    """Settings configuration screen."""
+    
+    CSS = """
+    #settings-container {
+        align: center middle;
+    }
+    
+    #settings-box {
+        width: 90;
+        height: 100%;
+        max-height: 95%;
+        border: round $primary;
+        padding: 1 2;
+        overflow-y: auto;
+    }
+    
+    #settings-title {
+        text-align: center;
+        text-style: bold;
+        color: $primary;
+        margin-bottom: 1;
+    }
+    
+    .section-title {
+        text-style: bold;
+        color: $secondary;
+        margin-top: 1;
+        margin-bottom: 0;
+    }
+    
+    .setting-row {
+        height: 3;
+        align: left middle;
+    }
+    
+    .setting-label {
+        width: 30;
+        height: 3;
+        content-align: left middle;
+    }
+    
+    .setting-input {
+        width: 1fr;
+        height: 3;
+    }
+    
+    #test-webhook-btn {
+        width: 12;
+        height: 3;
+        margin-left: 1;
+    }
+    
+    #webhook-status {
+        height: 1;
+        color: $secondary;
+        margin-left: 30;
+    }
+    
+    .toggle-row {
+        height: 3;
+        align: left middle;
+    }
+    
+    .toggle-label {
+        width: 30;
+        height: 3;
+        content-align: left middle;
+    }
+    
+    Switch {
+        height: 3;
+    }
+    
+    .hint-text {
+        color: $warning;
+        text-style: italic;
+        height: 1;
+        margin-left: 2;
+    }
+    
+    #button-row {
+        height: 3;
+        margin-top: 1;
+    }
+    
+    #save-btn {
+        width: 1fr;
+    }
+    
+    #back-btn {
+        width: 12;
+    }
+    
+    #save-status {
+        text-align: center;
+        color: $success;
+        height: 1;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "go_back", "Back"),
+        Binding("s", "save_settings", "Save"),
+    ]
+    
+    def compose(self) -> ComposeResult:
+        from utils.config import get_config
+        from textual.widgets import Switch
+        from textual.containers import VerticalScroll
+        
+        config = get_config()
+        
+        yield Container(
+            VerticalScroll(
+                Static("Settings", id="settings-title"),
+                Rule(),
+                
+                # Notifications Section
+                Static("[Notifications]", classes="section-title"),
+                Horizontal(
+                    Label("Discord Webhook:", classes="setting-label"),
+                    Input(
+                        value=config.notification.webhook_url,
+                        placeholder="https://discord.com/api/webhooks/...",
+                        id="webhook-input",
+                        classes="setting-input",
+                    ),
+                    Button("Test", id="test-webhook-btn", variant="warning"),
+                    classes="setting-row",
+                ),
+                Static("", id="webhook-status"),
+                Horizontal(
+                    Label("Notify on Errors:", classes="toggle-label"),
+                    Switch(value=config.notification.notify_on_errors, id="notify-errors-switch"),
+                    classes="toggle-row",
+                ),
+                Horizontal(
+                    Label("Notify on Ban Detection:", classes="toggle-label"),
+                    Switch(value=config.notification.notify_on_ban, id="notify-ban-switch"),
+                    classes="toggle-row",
+                ),
+                Horizontal(
+                    Label("Session Summary:", classes="toggle-label"),
+                    Switch(value=config.notification.send_session_summary, id="session-summary-switch"),
+                    classes="toggle-row",
+                ),
+                
+                Rule(),
+                
+                # Automation Section
+                Static("[Automation]", classes="section-title"),
+                Horizontal(
+                    Label("CAPTCHA Max Attempts:", classes="setting-label"),
+                    Input(
+                        value=str(config.automation.captcha_max_attempts),
+                        placeholder="25",
+                        id="captcha-attempts-input",
+                        classes="setting-input",
+                    ),
+                    classes="setting-row",
+                ),
+                Horizontal(
+                    Label("Browser Timeout (sec):", classes="setting-label"),
+                    Input(
+                        value=str(config.automation.browser_timeout),
+                        placeholder="30",
+                        id="browser-timeout-input",
+                        classes="setting-input",
+                    ),
+                    classes="setting-row",
+                ),
+                Horizontal(
+                    Label("Retry Delay (sec):", classes="setting-label"),
+                    Input(
+                        value=str(config.automation.auto_retry_delay),
+                        placeholder="3",
+                        id="retry-delay-input",
+                        classes="setting-input",
+                    ),
+                    classes="setting-row",
+                ),
+                Horizontal(
+                    Label("Max Consecutive Errors:", classes="setting-label"),
+                    Input(
+                        value=str(config.automation.max_consecutive_errors),
+                        placeholder="5",
+                        id="max-errors-input",
+                        classes="setting-input",
+                    ),
+                    classes="setting-row",
+                ),
+                Horizontal(
+                    Label("Auto Solve CAPTCHA:", classes="toggle-label"),
+                    Switch(value=config.automation.auto_solve_captcha, id="auto-captcha-switch"),
+                    classes="toggle-row",
+                ),
+                Horizontal(
+                    Label("Headless Mode:", classes="toggle-label"),
+                    Switch(value=config.automation.headless_mode, id="headless-switch"),
+                    classes="toggle-row",
+                ),
+                Horizontal(
+                    Label("Stop on Ban:", classes="toggle-label"),
+                    Switch(value=config.automation.stop_on_ban, id="stop-ban-switch"),
+                    classes="toggle-row",
+                ),
+                Horizontal(
+                    Label("Debug Mode:", classes="toggle-label"),
+                    Switch(value=config.automation.debug_mode, id="debug-switch"),
+                    classes="toggle-row",
+                ),
+                
+                Rule(),
+                
+                # Rate Limiting Section
+                Static("[Rate Limiting]", classes="section-title"),
+                Static("Recommended: max 5 sends/hour to avoid rate-limits", classes="hint-text"),
+                Horizontal(
+                    Label("Safe Mode (4/hour):", classes="toggle-label"),
+                    Switch(value=config.automation.safe_mode, id="safe-mode-switch"),
+                    classes="toggle-row",
+                ),
+                Horizontal(
+                    Label("Safe Mode Delay (sec):", classes="setting-label"),
+                    Input(
+                        value=str(config.automation.safe_mode_delay),
+                        placeholder="900 (15 min)",
+                        id="safe-mode-delay-input",
+                        classes="setting-input",
+                    ),
+                    classes="setting-row",
+                ),
+                
+                Rule(),
+                
+                # Network Section
+                Static("[Network]", classes="section-title"),
+                Horizontal(
+                    Label("Proxy URL:", classes="setting-label"),
+                    Input(
+                        value=config.automation.proxy_url,
+                        placeholder="http://user:pass@host:port (optional)",
+                        id="proxy-input",
+                        classes="setting-input",
+                    ),
+                    classes="setting-row",
+                ),
+                
+                Rule(),
+                Static("", id="save-status"),
+                
+                Horizontal(
+                    Button("Save Settings", id="save-btn", variant="primary"),
+                    Button("Back", id="back-btn", variant="default"),
+                    id="button-row",
+                ),
+                
+                id="settings-box",
+            ),
+            id="settings-container",
+        )
+    
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+    
+    def action_save_settings(self) -> None:
+        self.on_save()
+    
+    @on(Button.Pressed, "#back-btn")
+    def on_back(self) -> None:
+        self.app.pop_screen()
+    
+    @on(Button.Pressed, "#save-btn")
+    def on_save(self) -> None:
+        from utils.config import update_config
+        from textual.widgets import Switch
+        
+        # Get input values
+        webhook = self.query_one("#webhook-input", Input).value.strip()
+        captcha_attempts_str = self.query_one("#captcha-attempts-input", Input).value.strip()
+        browser_timeout_str = self.query_one("#browser-timeout-input", Input).value.strip()
+        retry_delay_str = self.query_one("#retry-delay-input", Input).value.strip()
+        max_errors_str = self.query_one("#max-errors-input", Input).value.strip()
+        proxy = self.query_one("#proxy-input", Input).value.strip()
+        
+        # Get toggle values
+        notify_errors = self.query_one("#notify-errors-switch", Switch).value
+        notify_ban = self.query_one("#notify-ban-switch", Switch).value
+        session_summary = self.query_one("#session-summary-switch", Switch).value
+        auto_captcha = self.query_one("#auto-captcha-switch", Switch).value
+        headless = self.query_one("#headless-switch", Switch).value
+        stop_ban = self.query_one("#stop-ban-switch", Switch).value
+        debug = self.query_one("#debug-switch", Switch).value
+        safe_mode = self.query_one("#safe-mode-switch", Switch).value
+        
+        # Parse integers with defaults
+        def parse_int(val: str, default: int, min_val: int, max_val: int) -> int:
+            try:
+                return max(min_val, min(max_val, int(val))) if val else default
+            except ValueError:
+                return default
+        
+        captcha_attempts = parse_int(captcha_attempts_str, 25, 1, 100)
+        browser_timeout = parse_int(browser_timeout_str, 30, 5, 120)
+        retry_delay = parse_int(retry_delay_str, 3, 0, 60)
+        max_errors = parse_int(max_errors_str, 5, 1, 50)
+        safe_mode_delay = parse_int(
+            self.query_one("#safe-mode-delay-input", Input).value.strip(),
+            900, 60, 3600
+        )
+        
+        # Save all settings
+        update_config(
+            webhook_url=webhook,
+            captcha_max_attempts=captcha_attempts,
+            browser_timeout=browser_timeout,
+            auto_retry_delay=retry_delay,
+            max_consecutive_errors=max_errors,
+            proxy_url=proxy,
+            notify_on_errors=notify_errors,
+            notify_on_ban=notify_ban,
+            send_session_summary=session_summary,
+            auto_solve_captcha=auto_captcha,
+            headless_mode=headless,
+            stop_on_ban=stop_ban,
+            debug_mode=debug,
+            safe_mode=safe_mode,
+            safe_mode_delay=safe_mode_delay,
+        )
+        
+        self.query_one("#save-status", Static).update("Settings saved to ~/.zefoy/config.json")
+    
+    @on(Button.Pressed, "#test-webhook-btn")
+    async def on_test_webhook(self) -> None:
+        """Send a test notification to the configured webhook."""
+        from utils.notifications import send_webhook
+        
+        webhook_url = self.query_one("#webhook-input", Input).value.strip()
+        status_widget = self.query_one("#webhook-status", Static)
+        
+        if not webhook_url:
+            status_widget.update("⚠️ Enter a webhook URL first")
+            return
+        
+        if not webhook_url.startswith("https://discord.com/api/webhooks/"):
+            status_widget.update("⚠️ Invalid Discord webhook URL format")
+            return
+        
+        status_widget.update("🔄 Testing webhook...")
+        
+        success = await send_webhook(
+            title="🔔 Webhook Test",
+            description="Your Discord webhook is configured correctly!",
+            color=0x00FF00,
+            fields=[
+                {"name": "Status", "value": "✅ Connection successful", "inline": True},
+                {"name": "Source", "value": "Zefoy Automation", "inline": True},
+            ],
+            webhook_url=webhook_url,
+        )
+        
+        if success:
+            status_widget.update("✅ Test sent! Check your Discord channel")
+        else:
+            status_widget.update("❌ Failed to send - check webhook URL")
 
 
 class ServiceScreen(Screen):
@@ -271,6 +663,7 @@ class RunningScreen(Screen):
         self._should_exit = False
         self._total_attempts = 0
         self._start_time = None
+        self._banned = False
     
     def compose(self) -> ComposeResult:
         yield Container(
@@ -351,6 +744,28 @@ class RunningScreen(Screen):
         except Exception:
             pass
     
+    async def _send_session_summary(self, reason: str) -> None:
+        """Send session summary to Discord webhook."""
+        from utils.notifications import notify_session_end, is_notifications_enabled
+        if not is_notifications_enabled():
+            return
+        
+        elapsed_text = "Unknown"
+        if self._start_time:
+            import time
+            elapsed = int(time.time() - self._start_time)
+            mins, secs = divmod(elapsed, 60)
+            hours, mins = divmod(mins, 60)
+            elapsed_text = f"{hours}h {mins}m {secs}s" if hours else f"{mins}m {secs}s"
+        
+        await notify_session_end(
+            service=self.app.selected_service,
+            sent_count=self._successful,
+            attempts=self._total_attempts,
+            elapsed_time=elapsed_text,
+            reason=reason,
+        )
+    
     def write_log(self, message: str) -> None:
         self.query_one("#output-log", RichLog).write(message)
     
@@ -376,6 +791,10 @@ class RunningScreen(Screen):
         """Run the full automation workflow."""
         from browser.automation import create_automation
         from utils.health_check import check_site_status
+        from utils.config import get_config
+        
+        # Load config
+        config = get_config()
         
         self._running = True
         self._successful = 0
@@ -395,7 +814,14 @@ class RunningScreen(Screen):
             self.set_state("Launching browser...")
             self.write_log("[cyan]Starting browser...[/]")
             
-            async with create_automation(headless=True, verbose=False) as automation:
+            # Use config settings
+            proxy = config.automation.proxy_url if config.automation.proxy_url else None
+            
+            async with create_automation(
+                headless=config.automation.headless_mode,
+                verbose=config.automation.debug_mode,
+                proxy=proxy,
+            ) as automation:
                 # Start the browser and navigate
                 await automation.start()
                 
@@ -406,10 +832,20 @@ class RunningScreen(Screen):
                 
                 # CAPTCHA - check if we're NOT on main page (meaning CAPTCHA is present)
                 if not await automation.is_on_main_page():
+                    captcha_attempts = config.automation.captcha_max_attempts
                     self.set_state("CAPTCHA detected")
-                    self.write_log("[yellow]CAPTCHA detected - auto-solving...[/]")
+                    self.write_log(f"[yellow]CAPTCHA detected - auto-solving (up to {captcha_attempts} tries)...[/]")
                     
-                    result = await automation.solve_captcha_auto()
+                    # Create progress callback for CAPTCHA attempts
+                    async def captcha_progress(attempt: int, max_attempts: int, status: str):
+                        self.set_state(f"CAPTCHA try {attempt}/{max_attempts}")
+                        if status == "trying":
+                            self.write_log(f"[dim]CAPTCHA attempt {attempt}/{max_attempts}...[/]")
+                    
+                    result = await automation.solve_captcha_auto(
+                        max_attempts=captcha_attempts, 
+                        progress_callback=captcha_progress
+                    )
                     if result == "solved":
                         self.write_log("[green]CAPTCHA solved![/]")
                     else:
@@ -434,6 +870,12 @@ class RunningScreen(Screen):
                 # Run loop - continuous until user quits
                 video_url = self.app.video_url
                 
+                # Import ban detection and notifications
+                from utils.timer import is_likely_ban
+                from utils.notifications import (
+                    notify_milestone, notify_ban_detected, is_notifications_enabled
+                )
+                
                 while self._running:
                     self._total_attempts += 1
                     self.update_attempts()
@@ -447,8 +889,25 @@ class RunningScreen(Screen):
                         self.update_sent()
                         self.write_log(f"[green]✓ Sent! Total: {self._successful}[/]")
                         
-                        # Wait after success before next attempt
-                        wait_time = result.get("wait_time", 180) + 3
+                        # Check for milestone notifications
+                        if is_notifications_enabled():
+                            await notify_milestone(self._successful, service_key, video_url)
+                        
+                        # Calculate wait time
+                        retry_delay = config.automation.auto_retry_delay
+                        base_wait = result.get("wait_time", 180) + retry_delay
+                        
+                        # Safe mode: enforce minimum 15 min between sends
+                        if config.automation.safe_mode:
+                            safe_delay = config.automation.safe_mode_delay
+                            if base_wait < safe_delay:
+                                self.write_log(f"[cyan]Safe mode: waiting {safe_delay}s (15 min)[/]")
+                                wait_time = safe_delay
+                            else:
+                                wait_time = base_wait
+                        else:
+                            wait_time = base_wait
+                        
                         self.write_log(f"[dim]Waiting {wait_time}s...[/]")
                         self.set_state("Waiting")
                         for remaining in range(wait_time, 0, -1):
@@ -458,7 +917,27 @@ class RunningScreen(Screen):
                             await asyncio.sleep(1)
                         self.update_timer_display(0)
                     elif result["wait_time"] > 0:
-                        wait_time = result["wait_time"] + 3
+                        wait_time = result["wait_time"]
+                        
+                        # Check for ban (24h+ rate limit)
+                        if is_likely_ban(wait_time):
+                            hours = wait_time // 3600
+                            self._banned = True
+                            self._running = False
+                            self.write_log(f"[red bold]⚠️ BAN DETECTED: {hours}h+ rate limit![/]")
+                            self.write_log("[red]This indicates a likely IP/account ban.[/]")
+                            self.set_state("BANNED")
+                            
+                            # Send ban notification
+                            if is_notifications_enabled():
+                                await notify_ban_detected(wait_time, service_key)
+                            
+                            # Send session summary with ban reason
+                            await self._send_session_summary("Ban detected")
+                            break
+                        
+                        retry_delay = config.automation.auto_retry_delay
+                        wait_time += retry_delay
                         self.write_log(f"[yellow]Rate limited: {wait_time}s[/]")
                         self.set_state("Rate limited")
                         
@@ -471,13 +950,21 @@ class RunningScreen(Screen):
                     else:
                         self.write_log(f"[red]{result['message']}[/]")
                 
-                self.write_log("[yellow]Stopped[/]")
-                self.set_state("Stopped")
+                if not self._banned:
+                    self.write_log("[yellow]Stopped[/]")
+                    self.set_state("Stopped")
+                    # Send session summary for normal stop
+                    await self._send_session_summary("User stopped")
         
         except Exception as e:
             try:
                 self.write_log(f"[red]Error: {e}[/]")
                 self.set_state("Error")
+                # Send error notification
+                from utils.notifications import notify_error, is_notifications_enabled
+                if is_notifications_enabled():
+                    await notify_error(str(e), self.app.selected_service)
+                await self._send_session_summary(f"Error: {str(e)[:50]}")
             except Exception:
                 pass  # App is exiting
         
@@ -508,6 +995,7 @@ class ZefoyTUI(App):
     
     SCREENS = {
         "welcome": WelcomeScreen,
+        "settings": SettingsScreen,
         "service": ServiceScreen,
         "running": RunningScreen,
     }

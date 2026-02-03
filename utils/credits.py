@@ -35,7 +35,7 @@ def get_repo_url() -> str:
 
 def get_version() -> str:
     """Get the current version."""
-    return "3.1.0"
+    return "3.2.0"
 
 
 def get_credits_short() -> str:

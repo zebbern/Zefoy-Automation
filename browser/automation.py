@@ -268,8 +268,12 @@ class ZefoyAutomation:
             return "solved"
         return "timeout"
     
-    async def solve_captcha_auto(self, max_attempts: int = 3) -> str:
+    async def solve_captcha_auto(self, max_attempts: int = 25, progress_callback=None) -> str:
         """Attempt to auto-solve CAPTCHA using OCR.
+        
+        Args:
+            max_attempts: Maximum OCR attempts (default 25).
+            progress_callback: Optional async callback for progress updates.
         
         Returns:
             'solved' if successful
@@ -280,7 +284,7 @@ class ZefoyAutomation:
             return "manual"
         
         # First, try auto-solving
-        if await self.captcha_solver.solve(max_attempts=max_attempts):
+        if await self.captcha_solver.solve(max_attempts=max_attempts, progress_callback=progress_callback):
             return "solved"
         
         # Auto-solve failed, fall back to manual

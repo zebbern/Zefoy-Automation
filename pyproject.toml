@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zefoy-cli"
-version = "0.1.0"
+version = "3.2.0"
 description = "CLI automation tool for zefoy.com TikTok services"
 requires-python = ">=3.11"
 dependencies = [
     "playwright>=1.40.0",
+    "aiohttp>=3.9.0",
 ]
 
 [project.optional-dependencies]

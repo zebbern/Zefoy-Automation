@@ -5,13 +5,16 @@
 
 ## Automate Zefoy Interactions With No Effort
 
-**v3.1.0 - TUI Edition**
+**v3.2.0 - Ban Detection & Discord Notifications**
 
 ---
 
 | **Features** | **Description** |
 |-------------|-----------------|
 | **🆕 Terminal UI (TUI)** | Beautiful interactive terminal interface with live timer. |
+| **🚫 Ban Detection** | Auto-stops when 24h+ rate limit detected (likely IP/account ban). |
+| **📣 Discord Notifications** | Webhook alerts for milestones, bans, and session summaries. |
+| **Session Statistics** | Track Sent count, Attempts, and Elapsed time in real-time. |
 | **Virtual Environment Setup** | Automatic venv creation and dependency management. |
 | **One-Click Launch** | Auto-setup and run with a single command. |
 | **Smart Popup Handling** | Auto-dismisses alerts, clicks close buttons, removes overlays. |
@@ -89,6 +92,45 @@ python tui_main.py
 | `Enter` | Confirm selection |
 | `Escape` | Go back |
 | `Q` | Quit |
+
+---
+
+## 📣 Discord Notifications
+
+Get real-time alerts sent to your Discord server!
+
+### Setup
+
+1. Create a Discord webhook in your server (Server Settings → Integrations → Webhooks)
+2. Set the environment variable:
+
+```bash
+# Windows
+set ZEFOY_DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
+
+# Linux/Mac
+export ZEFOY_DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
+```
+
+### Notification Types
+
+| Event | Description |
+|-------|-------------|
+| 🎉 **Milestones** | Sent at 10, 25, 50, 100, 250, 500, 1000 successful sends |
+| 🚫 **Ban Detected** | When rate limit exceeds 24 hours (likely IP ban) |
+| 📊 **Session Summary** | Statistics when session ends |
+| ❌ **Errors** | When automation encounters errors |
+
+---
+
+## 🚫 Ban Detection
+
+The automation automatically detects when you've been rate-limited for 24+ hours, which typically indicates an IP or account ban:
+
+- **Auto-stops** the automation immediately
+- **Alerts** you in the TUI with red warning
+- **Sends** Discord notification (if configured)
+- **Suggests** trying again later or using a different network
 
 ---
 
@@ -357,26 +399,41 @@ pytest
 
 ---
 
-## Disclaimer
+## ⚠️ Disclaimer
 
-> **This tool is provided for educational and research purposes only.**
+**This tool is provided for educational and research purposes only.**
 
-- This automation tool interacts with third-party services (zefoy.com, TikTok)
-- Use at your own risk; the authors are not responsible for any consequences
-- Automated engagement may violate TikTok's Terms of Service
-- Respect rate limits and use responsibly
-- Do not use for spam, harassment, or any malicious purposes
+### Important Notices
 
-**By using this software, you acknowledge that:**
-- You understand the risks involved
-- You will use it responsibly and ethically
-- You accept full responsibility for your actions
+- This project is an independent automation tool and is **not affiliated with or endorsed by** zefoy.com or TikTok
+- The author has no control over third-party service availability or functionality
+- Automated interactions may violate TikTok's and/or Zefoy's Terms of Service
+- **Use of this tool is entirely at your own risk**
+
+### Prohibited Uses
+
+This tool must **NOT** be used for:
+- Spam or malicious activities
+- Harassment or abuse
+- Any activities that violate platform Terms of Service
+- Commercial purposes without proper authorization
+
+### Your Responsibilities
+
+By using this software, you acknowledge and agree that:
+
+1. **You understand the risks** - Including potential account restrictions or bans
+2. **You will verify compliance** - Check TikTok's and Zefoy's Terms of Service before use
+3. **You will use responsibly** - Respect rate limits and ethical guidelines
+4. **You accept full liability** - The author assumes no responsibility for:
+   - Consequences arising from your use of this tool
+   - Violations of any Terms of Service
+   - Account suspensions, bans, or other penalties
+   - Any damages or losses incurred
 
 ---
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**By installing, or using this software, you agree to this disclaimer and accept sole responsibility for your actions.**
 
 ---
 
