@@ -1,6 +1,6 @@
 """Favorites service implementation."""
-from .base_service import BaseService
-from ..browser.js_injections import REMOVE_AD_OVERLAYS
+from services.base_service import BaseService
+from browser.js_injections import REMOVE_AD_OVERLAYS
 
 
 class FavoritesService(BaseService):

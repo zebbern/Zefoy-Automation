@@ -3,10 +3,10 @@ import argparse
 import asyncio
 import sys
 import warnings
-from .browser.automation import ZefoyAutomation, SERVICES, create_automation
-from .utils.timer import wait_with_progress
-from .utils.health_check import check_site_status
-from .utils.colors import success, error, warning, info, dim, bold, Colors
+from browser.automation import ZefoyAutomation, SERVICES, create_automation
+from utils.timer import wait_with_progress
+from utils.health_check import check_site_status
+from utils.colors import success, error, warning, info, dim, bold, Colors
 
 # Suppress asyncio cleanup warnings
 warnings.filterwarnings("ignore", category=ResourceWarning)
@@ -48,6 +48,24 @@ def format_time(seconds: int) -> str:
     if mins > 0:
         return f"{mins}m {secs}s"
     return f"{secs}s"
+
+
+async def clear_cookies_standalone() -> None:
+    """Clear Playwright browser cookies for zefoy.com."""
+    from playwright.async_api import async_playwright
+    
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        # Navigate to set up cookies
+        page = await context.new_page()
+        try:
+            await page.goto("https://zefoy.com", timeout=10000)
+        except Exception:
+            pass
+        # Clear all cookies
+        await context.clear_cookies()
+        await browser.close()
 
 
 async def select_service_interactive(automation: ZefoyAutomation) -> str | None:
@@ -92,7 +110,9 @@ async def run_automation(
     loop_count: int = 1,
     auto_wait: bool = True,
     verbose: bool = False,
-    interactive: bool = False
+    interactive: bool = False,
+    auto_captcha: bool = False,
+    proxy: str | None = None
 ) -> None:
     """Run automation for the specified service."""
     # Check if site is up first
@@ -107,8 +127,10 @@ async def run_automation(
         return
     
     # Use context manager for proper cleanup
-    async with create_automation(headless=headless, verbose=verbose) as automation:
+    async with create_automation(headless=headless, verbose=verbose, proxy=proxy) as automation:
         print_section("Starting Browser")
+        if proxy:
+            print(f"  {info('Using proxy:')} {dim(proxy)}")
         await automation.start()
         
         print(f"  {dim('Handling popups...')}")
@@ -118,11 +140,16 @@ async def run_automation(
         print(f"\n{Colors.BRIGHT_YELLOW}{'=' * 50}{Colors.RESET}")
         print(f"  {warning('CAPTCHA REQUIRED')}")
         print(f"{Colors.BRIGHT_YELLOW}{'=' * 50}{Colors.RESET}")
-        print(f"  {dim('Solve the CAPTCHA in the browser window.')}")
-        print(f"  {dim('The script will continue automatically.')}")
-        print(f"{Colors.BRIGHT_YELLOW}{'=' * 50}{Colors.RESET}")
         
-        captcha_result = await automation.solve_captcha_manual()
+        if auto_captcha:
+            print(f"  {info('Attempting auto-solve using OCR...')}")
+            print(f"{Colors.BRIGHT_YELLOW}{'=' * 50}{Colors.RESET}")
+            captcha_result = await automation.solve_captcha_auto(max_attempts=5)
+        else:
+            print(f"  {dim('Solve the CAPTCHA in the browser window.')}")
+            print(f"  {dim('The script will continue automatically.')}")
+            print(f"{Colors.BRIGHT_YELLOW}{'=' * 50}{Colors.RESET}")
+            captcha_result = await automation.solve_captcha_manual()
         if captcha_result == "timeout":
             print(f"\n  {error('CAPTCHA timeout. Exiting...')}")
             return
@@ -165,7 +192,7 @@ async def run_automation(
                 
                 if successful_sends < loop_count:
                     wait_time = result.get("wait_time", 0)
-                    if wait_time == 0:
+                    if result.get("wait_time", 0) == 0:
                         wait_time = 180
                     wait_time += 3
                     
@@ -179,6 +206,16 @@ async def run_automation(
             else:
                 if result["wait_time"] > 0 and auto_wait:
                     wait_time = result["wait_time"] + 3
+                    
+                    # Check for massive ban (>24 hours / 86400 seconds)
+                    if wait_time > 86400:
+                        hours = wait_time // 3600
+                        days = hours // 24
+                        print(f"\n  {error(f'BANNED! Server returned a {days} day ({hours} hour) rate limit!')}")
+                        print(f"  {warning('This usually means the video URL or IP is blocked.')}")
+                        print(f"  {info('Try: 1) Different video URL  2) VPN/different IP  3) Wait it out')}")
+                        return
+                    
                     print(f"\n  {warning(f'Rate limited. Waiting {format_time(wait_time)}...')}")
                     
                     async def progress(remaining: int) -> None:
@@ -234,6 +271,12 @@ Examples:
     )
     
     parser.add_argument(
+        "--auto-captcha",
+        action="store_true",
+        help="Attempt to auto-solve CAPTCHA using OCR"
+    )
+    
+    parser.add_argument(
         "--no-wait",
         action="store_true",
         help="Don't auto-wait on rate limits"
@@ -252,6 +295,19 @@ Examples:
     )
     
     parser.add_argument(
+        "--clear-cookies",
+        action="store_true",
+        help="Clear Playwright browser cookies and exit"
+    )
+    
+    parser.add_argument(
+        "--proxy",
+        type=str,
+        default=None,
+        help="Proxy server URL (e.g., http://user:pass@host:port)"
+    )
+    
+    parser.add_argument(
         "--version",
         action="store_true",
         help="Show version and exit"
@@ -261,7 +317,7 @@ Examples:
     
     # Handle --version flag
     if args.version:
-        from . import __version__
+        __version__ = "0.1.0"  # Hardcoded version for direct execution
         print(f"zefoy-cli v{__version__}")
         sys.exit(0)
     
@@ -274,6 +330,13 @@ Examples:
         else:
             print(f"  {error(message)}")
         sys.exit(0 if is_up else 1)
+    
+    # Handle --clear-cookies flag
+    if args.clear_cookies:
+        print(f"\n{dim('Clearing Playwright cookies...')}")
+        asyncio.run(clear_cookies_standalone())
+        print(f"  {success('Cookies cleared!')}")
+        sys.exit(0)
     
     # URL is required if not using --check
     if not args.url:
@@ -293,10 +356,15 @@ Examples:
             loop_count=args.count,
             auto_wait=not args.no_wait,
             verbose=args.verbose,
-            interactive=interactive
+            interactive=interactive,
+            auto_captcha=args.auto_captcha,
+            proxy=args.proxy
         ))
-    except Exception:
-        pass
+    except Exception as e:
+        import traceback
+        print(f"\n  {error('Error:')} {e}")
+        if args.verbose:
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

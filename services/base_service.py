@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
-from ..utils.timer import parse_wait_time
-from ..utils.colors import dim
-from ..browser.js_injections import REMOVE_AD_OVERLAYS
+from utils.timer import parse_wait_time
+from utils.colors import dim
+from browser.js_injections import REMOVE_AD_OVERLAYS
 
 
 class BaseService(ABC):
@@ -155,11 +155,21 @@ class BaseService(ABC):
         return parse_wait_time(status)
     
     async def click_send_button(self) -> None:
-        """Click the numbered send button after search."""
+        """Click the numbered send button after search (the button with ❤️ icon and number)."""
         await self.page.wait_for_timeout(2000)
         
+        # The send button is usually a dark button with a heart icon and number
+        # Examples: "❤️ 94", "⭐ 25", "💬 10"
         selectors = [
+            # Dark buttons (most common for Hearts/Favorites)
+            'button.btn-dark:visible',
+            # Buttons with heart emoji or number
+            'button:has-text("❤"):visible',
+            'button:has-text("♥"):visible',
+            # Success/primary buttons as fallback
             'button.btn-success:visible',
+            'button.btn-primary:visible',
+            # Numbered buttons
             'button:has-text("1"):visible',
             'button:has-text("25"):visible',
             'button:has-text("50"):visible',
@@ -179,6 +189,15 @@ class BaseService(ABC):
         self._debug("Using JavaScript fallback for send button")
         await self.page.evaluate('''
             () => {
+                // Try dark buttons first (Hearts button is btn-dark)
+                const darkButtons = document.querySelectorAll('button.btn-dark');
+                for (const btn of darkButtons) {
+                    if (btn.offsetParent !== null) {
+                        btn.click();
+                        return true;
+                    }
+                }
+                // Fallback to success/primary buttons
                 const buttons = document.querySelectorAll('button.btn-success, button.btn-primary');
                 for (const btn of buttons) {
                     if (btn.offsetParent !== null) {

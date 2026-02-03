@@ -17,6 +17,9 @@ REMOVE_AD_OVERLAYS = """
         if (el.querySelector('iframe')) el.remove();
     });
     
+    // Remove fc-monetization dialogs
+    document.querySelectorAll('.fc-monetization-dialog-container, .fc-message-root').forEach(el => el.remove());
+    
     return true;
 }
 """
@@ -43,4 +46,40 @@ window.confirm = function() { return true; };
 BLOCK_NOTIFICATIONS = """
 Object.defineProperty(Notification, 'permission', { value: 'denied' });
 Notification.requestPermission = function() { return Promise.resolve('denied'); };
+"""
+
+# Block fc-monetization popups using MutationObserver
+BLOCK_FC_POPUPS = """
+(() => {
+    const cleanPage = () => {
+        // Remove all iframes (ads)
+        document.querySelectorAll('iframe').forEach(el => el.remove());
+        // Remove fc-monetization popups
+        document.querySelectorAll('.fc-monetization-dialog-container, .fc-message-root').forEach(el => el.remove());
+        document.querySelectorAll('.fc-dialog-overlay').forEach(el => el.remove());
+        document.querySelectorAll('.fc-consent-root').forEach(el => el.remove());
+        // Remove other ad elements
+        document.querySelectorAll('.adsbygoogle').forEach(el => el.remove());
+        
+        // Auto-click consent button if visible
+        document.querySelectorAll('button').forEach(btn => {
+            if (btn.textContent.includes('Consent') && btn.offsetParent !== null) {
+                btn.click();
+            }
+        });
+    };
+    
+    // Run after 800ms to let dialogs load
+    setTimeout(cleanPage, 800);
+    
+    // Run on any DOM change
+    const observer = new MutationObserver(cleanPage);
+    if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            observer.observe(document.body, { childList: true, subtree: true });
+        });
+    }
+})();
 """

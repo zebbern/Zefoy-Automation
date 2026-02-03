@@ -1,0 +1,19 @@
+# Zefoy-CLI Automation Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core - Browser automation
+playwright>=1.40.0
+
+# OCR for CAPTCHA solving
+easyocr>=1.7.0
+numpy>=1.24.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Spell correction for OCR improvement
+pyenchant>=3.2.0
+
+# Development/Testing dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

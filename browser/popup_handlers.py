@@ -1,10 +1,11 @@
 """Handlers for various popups and dialogs on zefoy.com."""
 from playwright.async_api import Page, Dialog
-from .js_injections import (
+from browser.js_injections import (
     REMOVE_AD_OVERLAYS,
     CLOSE_MOBILE_POPUP,
     DISMISS_ALERTS,
-    BLOCK_NOTIFICATIONS
+    BLOCK_NOTIFICATIONS,
+    BLOCK_FC_POPUPS
 )
 
 
@@ -32,6 +33,7 @@ class PopupHandlers:
         """Inject scripts to block popups before they appear."""
         await self.page.add_init_script(DISMISS_ALERTS)
         await self.page.add_init_script(BLOCK_NOTIFICATIONS)
+        await self.page.add_init_script(BLOCK_FC_POPUPS)
     
     async def remove_ad_overlays(self) -> bool:
         """Remove all ad iframes and overlays."""
@@ -47,55 +49,65 @@ class PopupHandlers:
             'button:has-text("Consent")',
             '.fc-cta-consent',
             '.fc-button-label:has-text("Consent")',
-            '[aria-label*="consent" i]',
-            'button.fc-cta-consent',
         ]
         
         for selector in selectors:
             try:
                 btn = self.page.locator(selector).first
-                if await btn.is_visible(timeout=2000):
+                if await btn.is_visible(timeout=500):
                     await btn.click(force=True)
                     self._debug(f"Clicked consent: {selector}")
-                    await self.page.wait_for_timeout(1000)
+                    await self.page.wait_for_timeout(300)
                     return True
             except Exception:
                 continue
         
-        try:
-            consent_btn = self.page.get_by_role("button", name="Consent")
-            if await consent_btn.is_visible(timeout=2000):
-                await consent_btn.click(force=True)
-                self._debug("Clicked consent via role selector")
-                return True
-        except Exception:
-            pass
-        
         return False
     
     async def handle_ad_gate(self) -> bool:
-        """Click through the 'View a short ad' modal."""
+        """Remove the 'Unlock more content' modal by removing it from DOM."""
         try:
-            ad_btn = self.page.get_by_role("button", name="View a short ad")
-            if await ad_btn.is_visible(timeout=3000):
-                await ad_btn.click()
-                await self.page.wait_for_timeout(2000)
-                await self.remove_ad_overlays()
-                return True
-        except Exception:
-            pass
-        return False
+            removed = await self.page.evaluate("""
+                () => {
+                    // Target the exact element first
+                    const fcRoot = document.querySelector('body > div.fc-message-root');
+                    if (fcRoot) {
+                        fcRoot.remove();
+                        return true;
+                    }
+                    
+                    // Fallback: remove by class names
+                    const selectors = [
+                        '.fc-monetization-dialog-container',
+                        '.fc-message-root',
+                        '.fc-dialog-container',
+                        '[class*="fc-"][class*="container"]'
+                    ];
+                    
+                    for (const sel of selectors) {
+                        const el = document.querySelector(sel);
+                        if (el) {
+                            el.remove();
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            """)
+            if removed:
+                self._debug("Removed 'Unlock more content' modal")
+            return removed
+        except Exception as e:
+            self._debug(f"Ad gate error: {e}")
+            return False
     
     async def handle_all_popups(self) -> None:
-        """Handle all known popups in sequence."""
+        """Handle all known popups efficiently."""
+        # Inject the observer that auto-removes popups
         await self.inject_blocking_scripts()
         
-        # Try consent multiple times
-        for _ in range(3):
-            if await self.handle_gdpr_consent():
-                break
-            await self.page.wait_for_timeout(1000)
+        # Explicitly click consent (JS may fire before button is ready)
+        await self.handle_gdpr_consent()
         
-        await self.handle_ad_gate()
+        # Quick cleanup
         await self.remove_ad_overlays()
-        await self.close_mobile_popup()
