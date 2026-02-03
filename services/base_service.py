@@ -1,4 +1,14 @@
-"""Base class for zefoy services."""
+"""
+Zefoy-CLI Automation - Base Service Module
+============================================
+
+Base class for zefoy services.
+
+Author: zebbern (https://github.com/zebbern)
+Repository: https://github.com/zebbern/Zefoy-Automation
+License: MIT
+Copyright (c) 2024 zebbern
+"""
 from __future__ import annotations
 
 import re

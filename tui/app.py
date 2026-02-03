@@ -1,4 +1,14 @@
-"""Zefoy TUI Application - Beautiful Terminal User Interface."""
+"""
+Zefoy-CLI Automation - TUI Application
+========================================
+
+Beautiful Terminal User Interface for Zefoy automation.
+
+Author: zebbern (https://github.com/zebbern)
+Repository: https://github.com/zebbern/Zefoy-Automation
+License: MIT
+Copyright (c) 2024 zebbern
+"""
 from __future__ import annotations
 
 import asyncio
@@ -66,6 +76,11 @@ class WelcomeScreen(Screen):
     #subtitle {
         text-align: center;
         color: $text-muted;
+    }
+    
+    #author {
+        text-align: center;
+        color: $primary-lighten-2;
         margin-bottom: 1;
     }
     
@@ -84,10 +99,13 @@ class WelcomeScreen(Screen):
     ]
     
     def compose(self) -> ComposeResult:
+        from utils.credits import get_author, get_version
+        
         yield Container(
             Vertical(
                 Static("ZEFOY TUI", id="title"),
-                Static("TikTok Automation", id="subtitle"),
+                Static(f"TikTok Automation v{get_version()}", id="subtitle"),
+                Static(f"by @{get_author()}", id="author"),
                 Rule(),
                 Label("Enter TikTok Video URL:"),
                 Input(placeholder="https://www.tiktok.com/@user/video/123...", id="url-input"),
@@ -251,6 +269,8 @@ class RunningScreen(Screen):
         self._running = False
         self._successful = 0
         self._should_exit = False
+        self._total_attempts = 0
+        self._start_time = None
     
     def compose(self) -> ComposeResult:
         yield Container(
@@ -273,13 +293,22 @@ class RunningScreen(Screen):
                         classes="info-row",
                     ),
                     Horizontal(
-                        Label("Progress:", classes="label"),
-                        Label("0 / 1", id="progress-value", classes="value"),
+                        Label("Sent:", classes="label"),
+                        Label("0", id="sent-value", classes="value"),
+                        classes="info-row",
+                    ),
+                    Horizontal(
+                        Label("Attempts:", classes="label"),
+                        Label("0", id="attempts-value", classes="value"),
+                        classes="info-row",
+                    ),
+                    Horizontal(
+                        Label("Elapsed:", classes="label"),
+                        Label("0:00", id="elapsed-value", classes="value"),
                         classes="info-row",
                     ),
                     id="status-info",
                 ),
-                ProgressBar(id="progress-bar", total=100, show_eta=False, show_percentage=False),
                 RichLog(id="output-log", auto_scroll=True, markup=True),
                 id="running-box",
             ),
@@ -290,8 +319,29 @@ class RunningScreen(Screen):
     def on_mount(self) -> None:
         # Update service name now that we're mounted
         self.query_one("#service-val", Label).update(self.app.selected_service.capitalize())
+        # Start elapsed time updater
+        import time
+        self._start_time = time.time()
+        self.set_interval(1.0, self._update_elapsed_time)
         # Auto-start automation when screen mounts
         self.run_automation()
+    
+    def _update_elapsed_time(self) -> None:
+        """Update elapsed time display every second."""
+        if self._start_time is None:
+            return
+        import time
+        elapsed = int(time.time() - self._start_time)
+        mins, secs = divmod(elapsed, 60)
+        hours, mins = divmod(mins, 60)
+        if hours:
+            text = f"{hours}:{mins:02d}:{secs:02d}"
+        else:
+            text = f"{mins}:{secs:02d}"
+        try:
+            self.query_one("#elapsed-value", Label).update(text)
+        except Exception:
+            pass
     
     def action_quit_automation(self) -> None:
         self._running = False
@@ -315,10 +365,11 @@ class RunningScreen(Screen):
             text = "--"
         self.query_one("#timer-value", Label).update(text)
     
-    def set_progress(self, current: int, total: int) -> None:
-        self.query_one("#progress-value", Label).update(f"{current} / {total}")
-        pct = int((current / total) * 100) if total else 0
-        self.query_one("#progress-bar", ProgressBar).update(progress=pct)
+    def update_sent(self) -> None:
+        self.query_one("#sent-value", Label).update(str(self._successful))
+    
+    def update_attempts(self) -> None:
+        self.query_one("#attempts-value", Label).update(str(self._total_attempts))
     
     @work(exclusive=True)
     async def run_automation(self) -> None:
@@ -328,7 +379,7 @@ class RunningScreen(Screen):
         
         self._running = True
         self._successful = 0
-        target = 1
+        self._total_attempts = 0
         
         try:
             # Check site
@@ -380,33 +431,32 @@ class RunningScreen(Screen):
                 
                 self.write_log(f"[green]Using {service_key.capitalize()}[/]")
                 
-                # Run loop
-                attempt = 0
+                # Run loop - continuous until user quits
                 video_url = self.app.video_url
                 
-                while self._running and self._successful < target:
-                    attempt += 1
-                    self.write_log(f"[cyan]--- Attempt {attempt} ---[/]")
-                    self.set_state(f"Attempt {attempt}")
+                while self._running:
+                    self._total_attempts += 1
+                    self.update_attempts()
+                    self.write_log(f"[cyan]--- Attempt {self._total_attempts} ---[/]")
+                    self.set_state(f"Attempt {self._total_attempts}")
                     
                     result = await automation.send_service(service_key, video_url)
                     
                     if result["success"]:
                         self._successful += 1
-                        self.set_progress(self._successful, target)
-                        self.write_log(f"[green]Sent! ({self._successful}/{target})[/]")
+                        self.update_sent()
+                        self.write_log(f"[green]✓ Sent! Total: {self._successful}[/]")
                         
                         # Wait after success before next attempt
-                        if self._successful < target:
-                            wait_time = result.get("wait_time", 180) + 3
-                            self.write_log(f"[dim]Waiting {wait_time}s...[/]")
-                            self.set_state("Waiting")
-                            for remaining in range(wait_time, 0, -1):
-                                if not self._running:
-                                    break
-                                self.update_timer_display(remaining)
-                                await asyncio.sleep(1)
-                            self.update_timer_display(0)
+                        wait_time = result.get("wait_time", 180) + 3
+                        self.write_log(f"[dim]Waiting {wait_time}s...[/]")
+                        self.set_state("Waiting")
+                        for remaining in range(wait_time, 0, -1):
+                            if not self._running:
+                                break
+                            self.update_timer_display(remaining)
+                            await asyncio.sleep(1)
+                        self.update_timer_display(0)
                     elif result["wait_time"] > 0:
                         wait_time = result["wait_time"] + 3
                         self.write_log(f"[yellow]Rate limited: {wait_time}s[/]")
@@ -421,12 +471,8 @@ class RunningScreen(Screen):
                     else:
                         self.write_log(f"[red]{result['message']}[/]")
                 
-                if self._successful >= target:
-                    self.write_log("[green]Target reached![/]")
-                    self.set_state("Completed!")
-                else:
-                    self.write_log("[yellow]Stopped[/]")
-                    self.set_state("Stopped")
+                self.write_log("[yellow]Stopped[/]")
+                self.set_state("Stopped")
         
         except Exception as e:
             try:

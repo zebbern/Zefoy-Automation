@@ -1,4 +1,14 @@
-"""CLI entry point for zefoy automation."""
+"""
+Zefoy-CLI Automation - CLI Entry Point
+=======================================
+
+Automate TikTok interactions via Zefoy with ease.
+
+Author: zebbern (https://github.com/zebbern)
+Repository: https://github.com/zebbern/Zefoy-Automation
+License: MIT
+Copyright (c) 2024 zebbern
+"""
 import argparse
 import asyncio
 import sys
@@ -313,12 +323,24 @@ Examples:
         help="Show version and exit"
     )
     
+    parser.add_argument(
+        "--about",
+        action="store_true",
+        help="Show credits and project info"
+    )
+    
     args = parser.parse_args()
+    
+    # Handle --about flag
+    if args.about:
+        from utils.credits import get_credits_full
+        print(get_credits_full())
+        sys.exit(0)
     
     # Handle --version flag
     if args.version:
-        __version__ = "0.1.0"  # Hardcoded version for direct execution
-        print(f"zefoy-cli v{__version__}")
+        from utils.credits import get_version, get_author
+        print(f"zefoy-cli v{get_version()} by @{get_author()}")
         sys.exit(0)
     
     # Handle --check flag

@@ -1,4 +1,14 @@
-"""Main Playwright automation class for zefoy.com."""
+"""
+Zefoy-CLI Automation - Browser Automation Module
+=================================================
+
+Main Playwright automation class for zefoy.com.
+
+Author: zebbern (https://github.com/zebbern)
+Repository: https://github.com/zebbern/Zefoy-Automation
+License: MIT
+Copyright (c) 2024 zebbern
+"""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
