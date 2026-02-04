@@ -5,7 +5,7 @@
 
 ## Automate Zefoy Interactions With No Effort
 
-**v3.3.0 - Fully Automated Zefoy Interaction & Auto Captcha Solver**
+**v3.3.0 - Fully Automated Zefoy Interaction & Captcha Solver**
 
 ---
 
