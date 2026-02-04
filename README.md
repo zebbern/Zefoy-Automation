@@ -3,11 +3,7 @@
     <img src="https://www.edigitalagency.com.au/wp-content/uploads/TikTok-icon-glyph.png" alt="Logo" width="120" height="121">
   </a>
 
-## Automate Zefoy Interactions With No Effort
-
-**v3.3.0 - Fully Automated Zefoy Interaction & Captcha Solver**
-
----
+## Automate Zefoy Interactions With No Effort <kbd>v3.3.0</kbd>
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
