@@ -17,14 +17,15 @@ from browser.automation import ZefoyAutomation, SERVICES, create_automation
 from utils.timer import wait_with_progress
 from utils.health_check import check_site_status
 from utils.colors import success, error, warning, info, dim, bold, Colors
+from utils.livecounts import LivecountsAPI, VideoStats
 
 # Suppress asyncio cleanup warnings
 warnings.filterwarnings("ignore", category=ResourceWarning)
 warnings.filterwarnings("ignore", message=".*unclosed transport.*")
 
 
-def print_header_box(service: str, url: str, count: int, auto_wait: bool) -> None:
-    """Print a nice header."""
+def print_header_box(service: str, url: str, count: int, auto_wait: bool, stats: VideoStats | None = None) -> None:
+    """Print a nice header with optional video stats."""
     print()
     print(f"{Colors.BRIGHT_CYAN}{'=' * 60}{Colors.RESET}")
     print(f"{Colors.BRIGHT_CYAN}|{Colors.RESET}{'ZEFOY CLI AUTOMATION':^58}{Colors.BRIGHT_CYAN}|{Colors.RESET}")
@@ -34,6 +35,19 @@ def print_header_box(service: str, url: str, count: int, auto_wait: bool) -> Non
     print(f"  {dim('Auto-wait:')} {success('Yes') if auto_wait else error('No')}")
     print(f"{Colors.BRIGHT_CYAN}{'-' * 60}{Colors.RESET}")
     print(f"  {dim('Video:')} {info(url)}")
+    
+    # Show video stats if available
+    if stats and stats.success:
+        print(f"{Colors.BRIGHT_CYAN}{'-' * 60}{Colors.RESET}")
+        print(f"  {bold('📊 Current Stats:')}")
+        print(f"    👁️  Views:    {Colors.BRIGHT_WHITE}{stats.views:,}{Colors.RESET}")
+        print(f"    ❤️  Likes:    {Colors.BRIGHT_WHITE}{stats.likes:,}{Colors.RESET}")
+        print(f"    💬 Comments: {Colors.BRIGHT_WHITE}{stats.comments:,}{Colors.RESET}")
+        print(f"    🔁 Shares:   {Colors.BRIGHT_WHITE}{stats.shares:,}{Colors.RESET}")
+    elif stats and not stats.success:
+        print(f"{Colors.BRIGHT_CYAN}{'-' * 60}{Colors.RESET}")
+        print(f"  {dim('Stats:')} {warning(f'Could not fetch ({stats.error})')}")
+    
     print(f"{Colors.BRIGHT_CYAN}{'=' * 60}{Colors.RESET}")
     print()
 
@@ -58,6 +72,43 @@ def format_time(seconds: int) -> str:
     if mins > 0:
         return f"{mins}m {secs}s"
     return f"{secs}s"
+
+
+def print_stats_comparison(before: VideoStats, after: VideoStats) -> None:
+    """Print before/after stats comparison."""
+    if not before.success or not after.success:
+        return
+    
+    views_delta = after.views - before.views
+    likes_delta = after.likes - before.likes
+    comments_delta = after.comments - before.comments
+    shares_delta = after.shares - before.shares
+    
+    def format_delta(value: int) -> str:
+        if value > 0:
+            return f"{Colors.BRIGHT_GREEN}+{value:,}{Colors.RESET}"
+        elif value < 0:
+            return f"{Colors.BRIGHT_RED}{value:,}{Colors.RESET}"
+        return f"{Colors.DIM}0{Colors.RESET}"
+    
+    print(f"\n{Colors.BRIGHT_MAGENTA}{'=' * 50}{Colors.RESET}")
+    print(f"  {bold('📊 STATS COMPARISON')}")
+    print(f"{Colors.BRIGHT_MAGENTA}{'-' * 50}{Colors.RESET}")
+    print(f"               {'Before':>12}  →  {'After':>12}   {'Change':>10}")
+    print(f"  👁️  Views:   {before.views:>12,}  →  {after.views:>12,}   {format_delta(views_delta)}")
+    print(f"  ❤️  Likes:   {before.likes:>12,}  →  {after.likes:>12,}   {format_delta(likes_delta)}")
+    print(f"  💬 Comments:{before.comments:>12,}  →  {after.comments:>12,}   {format_delta(comments_delta)}")
+    print(f"  🔁 Shares:  {before.shares:>12,}  →  {after.shares:>12,}   {format_delta(shares_delta)}")
+    print(f"{Colors.BRIGHT_MAGENTA}{'=' * 50}{Colors.RESET}")
+
+
+def fetch_video_stats(url: str) -> VideoStats | None:
+    """Fetch video stats from livecounts.io."""
+    try:
+        api = LivecountsAPI()
+        return api.get_video_stats(url)
+    except Exception:
+        return None
 
 
 async def clear_cookies_standalone() -> None:
@@ -122,9 +173,20 @@ async def run_automation(
     verbose: bool = False,
     interactive: bool = False,
     auto_captcha: bool = False,
-    proxy: str | None = None
+    proxy: str | None = None,
+    initial_stats: VideoStats | None = None
 ) -> None:
     """Run automation for the specified service."""
+    # Use provided initial stats or fetch new ones
+    before_stats = initial_stats
+    if before_stats is None:
+        print_section("Fetching Video Stats")
+        before_stats = fetch_video_stats(video_url)
+        if before_stats and before_stats.success:
+            print(f"  {success('Stats retrieved from livecounts.io')}")
+        else:
+            print(f"  {warning('Could not fetch stats (will skip comparison)')}")
+    
     # Check if site is up first
     print_section("Checking Site Status")
     is_up, message = check_site_status()
@@ -238,7 +300,21 @@ async def run_automation(
         
         print(f"\n{Colors.BRIGHT_GREEN}{'=' * 50}{Colors.RESET}")
         print(f"  {success(f'COMPLETE! {loop_count} successful send(s)')}")
-        print(f"{Colors.BRIGHT_GREEN}{'=' * 50}{Colors.RESET}\n")
+        print(f"{Colors.BRIGHT_GREEN}{'=' * 50}{Colors.RESET}")
+        
+        # Fetch after stats and show comparison
+        if before_stats and before_stats.success:
+            print_section("Verifying Results")
+            print(f"  {dim('Fetching updated stats...')}")
+            # Small delay to let TikTok update their counts
+            await asyncio.sleep(3)
+            after_stats = fetch_video_stats(video_url)
+            if after_stats and after_stats.success:
+                print_stats_comparison(before_stats, after_stats)
+            else:
+                print(f"  {warning('Could not fetch updated stats')}")
+        
+        print()
 
 
 def main() -> None:
@@ -368,7 +444,10 @@ Examples:
     interactive = args.service is None
     service_display = args.service or "interactive"
     
-    print_header_box(service_display, args.url, args.count, not args.no_wait)
+    # Fetch initial stats for header display
+    initial_stats = fetch_video_stats(args.url)
+    
+    print_header_box(service_display, args.url, args.count, not args.no_wait, initial_stats)
     
     try:
         asyncio.run(run_automation(
@@ -380,7 +459,8 @@ Examples:
             verbose=args.verbose,
             interactive=interactive,
             auto_captcha=args.auto_captcha,
-            proxy=args.proxy
+            proxy=args.proxy,
+            initial_stats=initial_stats
         ))
     except Exception as e:
         import traceback

@@ -5,17 +5,32 @@ from browser.js_injections import (
     CLOSE_MOBILE_POPUP,
     DISMISS_ALERTS,
     BLOCK_NOTIFICATIONS,
-    BLOCK_FC_POPUPS
+    BLOCK_FC_POPUPS,
+    MOUSE_SIMULATION_K9X,
+    GENERATE_CF_OB_TE,
+    SPOOF_FINGERPRINT,
 )
 
 
 class PopupHandlers:
     """Collection of popup/dialog handlers for zefoy.com."""
     
-    def __init__(self, page: Page, verbose: bool = False) -> None:
-        """Initialize popup handlers."""
+    def __init__(
+        self, 
+        page: Page, 
+        verbose: bool = False,
+        spoofed_fingerprint: str | None = None
+    ) -> None:
+        """Initialize popup handlers.
+        
+        Args:
+            page: Playwright page instance
+            verbose: Enable debug output
+            spoofed_fingerprint: Pre-generated encrypted fingerprint for spoofing
+        """
         self.page = page
         self.verbose = verbose
+        self.spoofed_fingerprint = spoofed_fingerprint
         self._setup_dialog_handler()
     
     def _debug(self, msg: str) -> None:
@@ -30,10 +45,21 @@ class PopupHandlers:
         self.page.on("dialog", handle_dialog)
     
     async def inject_blocking_scripts(self) -> None:
-        """Inject scripts to block popups before they appear."""
+        """Inject scripts to block popups and bypass anti-bot detection."""
         await self.page.add_init_script(DISMISS_ALERTS)
         await self.page.add_init_script(BLOCK_NOTIFICATIONS)
         await self.page.add_init_script(BLOCK_FC_POPUPS)
+        # Anti-bot bypass scripts
+        await self.page.add_init_script(GENERATE_CF_OB_TE)
+        await self.page.add_init_script(MOUSE_SIMULATION_K9X)
+        # Fingerprint spoofing
+        await self.page.add_init_script(SPOOF_FINGERPRINT)
+        
+        # Set the spoofed fingerprint value if provided
+        if self.spoofed_fingerprint:
+            await self.page.add_init_script(
+                f"window.__zefoy_spoofed_fingerprint = {self.spoofed_fingerprint!r};"
+            )
     
     async def remove_ad_overlays(self) -> bool:
         """Remove all ad iframes and overlays."""

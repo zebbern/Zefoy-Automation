@@ -24,6 +24,7 @@ from services.hearts import HeartsService
 from services.favorites import FavoritesService
 from services.comment_hearts import CommentHeartsService
 from utils.colors import success, error, dim, info
+from utils.fingerprint import get_spoofed_captcha_encoded
 
 
 # Default timeouts (in milliseconds)
@@ -134,13 +135,24 @@ class ZefoyAutomation:
                 context_options['proxy'] = {'server': self.proxy}
         
         self.context = await self.browser.new_context(**context_options)
+        
+        # Cookie rotation: Clear any existing cookies for fresh session
+        await self.context.clear_cookies()
+        
         self.page = await self.context.new_page()
         
         # Set default timeouts for better reliability
         self.page.set_default_timeout(DEFAULT_TIMEOUT)
         self.page.set_default_navigation_timeout(DEFAULT_NAVIGATION_TIMEOUT)
         
-        self.popup_handlers = PopupHandlers(self.page, verbose=self.verbose)
+        # Generate spoofed fingerprint for this session
+        spoofed_fingerprint = get_spoofed_captcha_encoded()
+        
+        self.popup_handlers = PopupHandlers(
+            self.page, 
+            verbose=self.verbose,
+            spoofed_fingerprint=spoofed_fingerprint
+        )
         self.captcha_solver = CaptchaSolver(self.page, verbose=self.verbose)
         
         await self.popup_handlers.inject_blocking_scripts()

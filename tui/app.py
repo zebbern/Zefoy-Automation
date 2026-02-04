@@ -34,6 +34,7 @@ from textual.widgets import (
     Static,
     RichLog,
 )
+from utils.livecounts import LivecountsAPI, VideoStats
 
 if TYPE_CHECKING:
     from browser.automation import ZefoyAutomation
@@ -640,15 +641,41 @@ class RunningScreen(Screen):
         color: $success;
     }
     
-    #progress-bar {
-        height: 1;
-        margin: 0 0 1 0;
-    }
-    
     RichLog {
         height: 1fr;
         border: round $primary-darken-2;
         background: $surface-darken-1;
+    }
+    
+    #stats-bar {
+        height: 1;
+        margin-top: 1;
+        background: $surface-darken-1;
+        padding: 0 2;
+        align: center middle;
+        content-align: center middle;
+    }
+    
+    .stat-label {
+        width: auto;
+        color: $text-muted;
+        margin-right: 1;
+    }
+    
+    .stat-val {
+        width: auto;
+        color: $text;
+    }
+    
+    .stat-delta {
+        width: auto;
+        color: $success;
+        margin-left: 1;
+    }
+    
+    .stat-divider {
+        width: auto;
+        color: $primary-darken-2;
     }
     """
     
@@ -664,11 +691,14 @@ class RunningScreen(Screen):
         self._total_attempts = 0
         self._start_time = None
         self._banned = False
-    
+        self._before_stats: VideoStats | None = None
+        self._after_stats: VideoStats | None = None
+
     def compose(self) -> ComposeResult:
         yield Container(
             Vertical(
                 Static("Running Automation", id="run-title"),
+                # Automation status info
                 Vertical(
                     Horizontal(
                         Label("Service:", classes="label"),
@@ -703,6 +733,23 @@ class RunningScreen(Screen):
                     id="status-info",
                 ),
                 RichLog(id="output-log", auto_scroll=True, markup=True),
+                # Stats footer bar - centered with spacing
+                Horizontal(
+                    Label("Views:", classes="stat-label"),
+                    Label("--", id="views-value", classes="stat-val"),
+                    Label("(+0)", id="delta-views", classes="stat-delta"),
+                    Static(" │ ", classes="stat-divider"),
+                    Label("Likes:", classes="stat-label"),
+                    Label("--", id="likes-value", classes="stat-val"),
+                    Label("(+0)", id="delta-likes", classes="stat-delta"),
+                    Static(" │ ", classes="stat-divider"),
+                    Label("Comments:", classes="stat-label"),
+                    Label("--", id="comments-value", classes="stat-val"),
+                    Static(" │ ", classes="stat-divider"),
+                    Label("Shares:", classes="stat-label"),
+                    Label("--", id="shares-value", classes="stat-val"),
+                    id="stats-bar",
+                ),
                 id="running-box",
             ),
             id="running-container",
@@ -712,6 +759,8 @@ class RunningScreen(Screen):
     def on_mount(self) -> None:
         # Update service name now that we're mounted
         self.query_one("#service-val", Label).update(self.app.selected_service.capitalize())
+        # Fetch and display initial stats
+        self._fetch_initial_stats()
         # Start elapsed time updater
         import time
         self._start_time = time.time()
@@ -719,6 +768,58 @@ class RunningScreen(Screen):
         # Auto-start automation when screen mounts
         self.run_automation()
     
+    def _fetch_initial_stats(self) -> None:
+        """Fetch video stats from livecounts.io and populate stats panel."""
+        try:
+            video_url = self.app.video_url
+            if not video_url:
+                self.query_one("#views-value", Label).update("No URL")
+                return
+            api = LivecountsAPI()
+            self._before_stats = api.get_video_stats(video_url)
+            if self._before_stats and self._before_stats.success:
+                self.query_one("#views-value", Label).update(f"{self._before_stats.views:,}")
+                self.query_one("#likes-value", Label).update(f"{self._before_stats.likes:,}")
+                self.query_one("#comments-value", Label).update(f"{self._before_stats.comments:,}")
+                self.query_one("#shares-value", Label).update(f"{self._before_stats.shares:,}")
+            else:
+                error_msg = self._before_stats.error if self._before_stats else "API Error"
+                self.query_one("#views-value", Label).update(f"Error")
+        except Exception as e:
+            self.query_one("#views-value", Label).update(f"Failed")
+
+    async def _show_stats_comparison(self) -> None:
+        """Fetch after stats and update the stats bar with deltas."""
+        if not self._before_stats or not self._before_stats.success:
+            return
+        try:
+            await asyncio.sleep(2)  # Wait for TikTok to update
+            api = LivecountsAPI()
+            self._after_stats = api.get_video_stats(self.app.video_url)
+            if self._after_stats and self._after_stats.success:
+                views_delta = self._after_stats.views - self._before_stats.views
+                likes_delta = self._after_stats.likes - self._before_stats.likes
+                
+                def fmt_delta(d: int) -> str:
+                    return f"(+{d})" if d >= 0 else f"({d})"
+                
+                # Update current stats
+                self.query_one("#views-value", Label).update(f"{self._after_stats.views:,}")
+                self.query_one("#likes-value", Label).update(f"{self._after_stats.likes:,}")
+                self.query_one("#comments-value", Label).update(f"{self._after_stats.comments:,}")
+                self.query_one("#shares-value", Label).update(f"{self._after_stats.shares:,}")
+                
+                # Update delta values
+                self.query_one("#delta-views", Label).update(fmt_delta(views_delta))
+                self.query_one("#delta-likes", Label).update(fmt_delta(likes_delta))
+                
+                # Log comparison
+                self.write_log("")
+                self.write_log("[cyan]━━━ 📊 Stats Updated ━━━[/]")
+                self.write_log(f"  👁️ Views: [{'green' if views_delta >= 0 else 'red'}]{fmt_delta(views_delta)}[/]  |  ❤️ Likes: [{'green' if likes_delta >= 0 else 'red'}]{fmt_delta(likes_delta)}[/]")
+        except Exception:
+            pass
+
     def _update_elapsed_time(self) -> None:
         """Update elapsed time display every second."""
         if self._start_time is None:
@@ -953,6 +1054,8 @@ class RunningScreen(Screen):
                 if not self._banned:
                     self.write_log("[yellow]Stopped[/]")
                     self.set_state("Stopped")
+                    # Fetch and show after stats comparison
+                    await self._show_stats_comparison()
                     # Send session summary for normal stop
                     await self._send_session_summary("User stopped")
         
@@ -1002,21 +1105,93 @@ class ZefoyTUI(App):
     
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", show=False),
+        Binding("ctrl+c", "cancel_interrupt", "Cancel", show=False),
     ]
     
     def __init__(self) -> None:
         super().__init__()
         self.video_url: str = ""
         self.selected_service: str = ""
+        self._ctrl_c_pressed: bool = False
     
     def on_mount(self) -> None:
         self.push_screen("welcome")
+    
+    def action_cancel_interrupt(self) -> None:
+        """Handle Ctrl+C - first press shows message, second press quits."""
+        if self._ctrl_c_pressed:
+            # Second Ctrl+C - actually quit
+            self.exit()
+        else:
+            # First Ctrl+C - show notification
+            self._ctrl_c_pressed = True
+            self.notify("Press 'q' to quit properly, or Ctrl+C again to force exit", severity="warning", timeout=5)
+            # Reset after 3 seconds
+            self.set_timer(3.0, self._reset_ctrl_c)
+    
+    def _reset_ctrl_c(self) -> None:
+        """Reset Ctrl+C flag."""
+        self._ctrl_c_pressed = False
 
 
 def run_tui() -> None:
     """Run the TUI."""
+    import sys
+    import os
+    import subprocess
+    
     app = ZefoyTUI()
     app.run()
+    
+    # Reset terminal after exit to clean up escape codes and disable mouse tracking
+    if sys.platform == "win32":
+        # Use stty equivalent for Windows - reset terminal via subprocess
+        try:
+            # Reset console mode using PowerShell
+            subprocess.run(
+                ["powershell", "-Command", "[Console]::TreatControlCAsInput = $false"],
+                capture_output=True,
+                timeout=2
+            )
+        except Exception:
+            pass
+        
+        # Disable mouse tracking modes that Textual enables
+        sys.stdout.write("\033[?1000l")  # Disable mouse click tracking
+        sys.stdout.write("\033[?1002l")  # Disable mouse button tracking
+        sys.stdout.write("\033[?1003l")  # Disable all mouse tracking
+        sys.stdout.write("\033[?1006l")  # Disable SGR mouse mode
+        sys.stdout.write("\033[?25h")    # Show cursor
+        sys.stdout.write("\033c")        # Full terminal reset
+        sys.stdout.flush()
+        
+        _print_exit_message()
+    else:
+        sys.stdout.write("\033[?1000l\033[?1002l\033[?1003l\033[?1006l\033c")
+        sys.stdout.flush()
+        _print_exit_message()
+
+
+def _print_exit_message() -> None:
+    """Print a styled exit message with developer info."""
+    # ANSI color codes
+    CYAN = "\033[36m"
+    MAGENTA = "\033[35m"
+    GREEN = "\033[32m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RESET = "\033[0m"
+    
+    # OSC 8 hyperlink (supported by modern terminals like Windows Terminal, iTerm2, etc.)
+    LINK_START = "\033]8;;https://github.com/zebbern\033\\"
+    LINK_END = "\033]8;;\033\\"
+    
+    print()
+    print(f"{DIM}{'─' * 50}{RESET}")
+    print(f"{GREEN}✓{RESET} {BOLD}Zefoy TUI closed.{RESET}")
+    print(f"{DIM}Developed by{RESET} {CYAN}{LINK_START}@zebbern{LINK_END}{RESET} {DIM}│{RESET} {MAGENTA}{LINK_START}github.com/zebbern{LINK_END}{RESET}")
+    print(f"{DIM}{'─' * 50}{RESET}")
+    print()
 
 
 if __name__ == "__main__":

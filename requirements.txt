@@ -21,3 +21,5 @@ textual>=0.89.0,<1.0.0
 # Development/Testing dependencies
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
+
+requests
