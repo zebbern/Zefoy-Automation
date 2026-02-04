@@ -14,6 +14,8 @@
 [![Playwright](https://img.shields.io/badge/Playwright-Powered-orange.svg)](https://playwright.dev/)
 [![Stars](https://img.shields.io/github/stars/zebbern/Zefoy-Automation?style=social)](https://github.com/zebbern/Zefoy-Automation/stargazers)
 
+<img src="https://github.com/user-attachments/assets/e346da24-c0cc-4a8d-9861-f0a515418481" alt="Logo" width="555" height="555">
+
 **A powerful, fully automated TikTok engagement tool using Zefoy.com**
 
 [Features](#features) • [Quick Start](#quick-start) • [TUI](#terminal-ui) • [Documentation](#documentation) • [Contributing](#contributing)
